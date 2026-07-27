@@ -22,6 +22,8 @@ This product uses the NVD API but is not endorsed or certified by the NVD.
 
 Limitation: 50 requests/30s
 
+Docs https://nvd.nist.gov/developers/vulnerabilities
+
 ## Supported
 
 

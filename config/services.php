@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'nvd' => [
+        'api_key' => env('NVD_API_KEY'),
+        'base_url' => 'https://services.nvd.nist.gov/rest/json',
+        'sleep_between_requests_ms' => 700, // stay under 50/30s even with key
+        'results_per_page' => 2000,
+    ],
 ];
