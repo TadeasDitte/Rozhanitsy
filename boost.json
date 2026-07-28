@@ -1,5 +1,6 @@
 {
     "agents": [
+        "claude_code",
         "opencode"
     ],
     "cloud": false,
@@ -8,8 +9,11 @@
     "nightwatch": false,
     "sail": false,
     "skills": [
+        "fortify-development",
         "laravel-best-practices",
+        "wayfinder-development",
         "pest-testing",
+        "inertia-vue-development",
         "tailwindcss-development"
     ]
 }

@@ -8,7 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
+    | as Resend, Postmark, AWS, and more. This file provides the de facto
     | location for this type of information, allowing packages to have
     | a conventional file to locate the various service credentials.
     |
@@ -34,10 +34,5 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-    'nvd' => [
-        'api_key' => env('NVD_API_KEY'),
-        'base_url' => 'https://services.nvd.nist.gov/rest/json',
-        'sleep_between_requests_ms' => 700, // stay under 50/30s even with key
-        'results_per_page' => 2000,
-    ],
+
 ];
