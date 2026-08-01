@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'nvd' => [
+        'api_key' => env('NVD_API_KEY'),
+    ],
+
 ];
