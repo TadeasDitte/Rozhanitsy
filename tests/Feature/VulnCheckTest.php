@@ -311,3 +311,62 @@ test('a component whose product has no ranges is neither vulnerable nor unmatche
         ->assertJsonPath('vulnerable', [])
         ->assertJsonPath('unmatched', []);
 });
+
+test('vendor and product match case insensitively', function () {
+    $product = mapCpe('automattic', 'akismet');
+    affectedRange($product, '1.0.0', '2.0.0');
+
+    postCheck([
+        'components' => [['vendor' => 'Automattic', 'product' => 'Akismet', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('unmatched', []);
+});
+
+test('the unmatched response echoes the caller original casing', function () {
+    postCheck([
+        'components' => [['vendor' => 'UnknownCo', 'product' => 'MysteryPlugin', 'version' => '1.0.0']],
+    ])
+        ->assertOk()
+        ->assertJsonPath('unmatched.0.vendor', 'UnknownCo')
+        ->assertJsonPath('unmatched.0.product', 'MysteryPlugin');
+});
+
+/** Case variants must not create duplicate rows in the triage worklist. */
+test('unmatched lookups are recorded lowercased and deduplicated across casings', function () {
+    postCheck([
+        'components' => [
+            ['vendor' => 'UnknownCo', 'product' => 'Mystery', 'version' => '1.0.0'],
+            ['vendor' => 'unknownco', 'product' => 'mystery', 'version' => '2.0.0'],
+        ],
+    ])->assertOk();
+
+    $lookup = UnmatchedLookup::sole();
+
+    expect($lookup->cpe_vendor)->toBe('unknownco')
+        ->and($lookup->cpe_product)->toBe('mystery')
+        ->and($lookup->hit_count)->toBe(1);
+});
+
+test('a deactivated scan host cannot authenticate', function () {
+    $host = ScanHost::factory()->inactive()->create();
+
+    $this->withToken($host->createToken('scanner')->plainTextToken)
+        ->postJson(route('api.vulns.check'), [
+            'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+        ])
+        ->assertUnauthorized();
+});
+
+test('an active scan host still authenticates', function () {
+    $host = ScanHost::factory()->create();
+
+    expect($host->is_active)->toBeTrue();
+
+    $this->withToken($host->createToken('scanner')->plainTextToken)
+        ->postJson(route('api.vulns.check'), [
+            'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+        ])
+        ->assertOk();
+});

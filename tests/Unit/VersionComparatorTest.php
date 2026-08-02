@@ -67,3 +67,24 @@ test('versions of differing depth compare correctly', function () {
 test('an unparseable installed version is not reported as affected', function () {
     expect($this->comparator->isAffected('', null, true, null, false))->toBeFalse();
 });
+
+test('a two segment version is comparable with three segment bounds', function () {
+    expect($this->comparator->isAffected('1.0', '1.0.0', true, '2.0.0', false))->toBeTrue()
+        ->and($this->comparator->isAffected('2.0', '1.0.0', true, '2.0.0', false))->toBeFalse();
+});
+
+test('a one segment version is padded', function () {
+    expect($this->comparator->isAffected('2', '1.0.0', true, '2.0.0', false))->toBeFalse()
+        ->and($this->comparator->isAffected('1', '1.0.0', true, '2.0.0', false))->toBeTrue();
+});
+
+test('padding does not disturb prerelease ordering', function () {
+    expect($this->comparator->isAffected('1.2-beta1', null, true, '1.2.0', false))->toBeTrue()
+        ->and($this->comparator->isAffected('1.2', null, true, '1.2.0', false))->toBeFalse();
+});
+
+test('an exact point range matches only that version', function () {
+    expect($this->comparator->isAffected('2.14.1', '2.14.1', true, '2.14.1', true))->toBeTrue()
+        ->and($this->comparator->isAffected('2.15.0', '2.14.1', true, '2.14.1', true))->toBeFalse()
+        ->and($this->comparator->isAffected('2.14.0', '2.14.1', true, '2.14.1', true))->toBeFalse();
+});

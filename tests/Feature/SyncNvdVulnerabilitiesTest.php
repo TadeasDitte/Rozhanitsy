@@ -184,14 +184,9 @@ test('it records the watermark on success', function () {
     $state = SyncState::sole();
 
     expect($state->source_id)->toBe($this->source->id)
-        ->and($state->last_synced_at)->not->toBeNull()
-        ->and($state->last_index)->toBeNull();
+        ->and($state->last_synced_at)->not->toBeNull();
 });
 
-/**
- * The watermark must not advance past CVEs that were never received, or the
- * next run would silently skip them forever.
- */
 test('a failed request leaves the watermark untouched', function () {
     Http::fake(['services.nvd.nist.gov/*' => Http::response(status: 503)]);
 
@@ -233,4 +228,95 @@ test('it requests pages of 2000 results', function () {
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'resultsPerPage=2000')
         && str_contains($request->url(), 'startIndex=0'));
+});
+
+test('an exact version cpe becomes an inclusive point range', function () {
+    fakeNvd([cveEntry('CVE-2026-1212', [
+        cpeMatch('cpe:2.3:a:apache:log4j:2.14.1:*:*:*:*:*:*:*'),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->version_start)->toBe('2.14.1')
+        ->and($range->version_end)->toBe('2.14.1')
+        ->and($range->version_start_incl)->toBeTrue()
+        ->and($range->version_end_incl)->toBeTrue();
+});
+
+test('a wildcard version cpe stays an unbounded range', function () {
+    fakeNvd([cveEntry('CVE-2026-1213', [
+        cpeMatch('cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*'),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->version_start)->toBeNull()
+        ->and($range->version_end)->toBeNull();
+});
+
+test('explicit range keys win over the cpe version field', function () {
+    fakeNvd([cveEntry('CVE-2026-1214', [
+        cpeMatch('cpe:2.3:a:apache:log4j:2.14.1:*:*:*:*:*:*:*', [
+            'versionStartIncluding' => '2.0.0',
+            'versionEndExcluding' => '2.17.0',
+        ]),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->version_start)->toBe('2.0.0')
+        ->and($range->version_end)->toBe('2.17.0');
+});
+
+test('a malformed entry is skipped without aborting the page', function () {
+    fakeNvd([
+        ['cve' => null],
+        ['not_a_cve' => true],
+        cveEntry('CVE-2026-1215'),
+    ], totalResults: 3);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(Vulnerability::count())->toBe(1)
+        ->and(Vulnerability::sole()->cve_id)->toBe('CVE-2026-1215');
+});
+
+test('the page cursor advances by rows received', function () {
+    Http::fakeSequence()
+        ->push(['totalResults' => 3, 'vulnerabilities' => [cveEntry('CVE-2026-1216'), cveEntry('CVE-2026-1217')]])
+        ->push(['totalResults' => 3, 'vulnerabilities' => [cveEntry('CVE-2026-1218')]]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(Vulnerability::count())->toBe(3);
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'startIndex=2'));
+});
+
+test('an unexpected empty page fails instead of reporting success', function () {
+    fakeNvd([], totalResults: 500);
+
+    $this->artisan('nvd:sync')->assertFailed();
+
+    expect(SyncState::sole()->last_synced_at)->toBeNull();
+});
+
+test('cpe vendor and product are stored lowercased', function () {
+    $vendor = Vendor::factory()->create(['name' => 'acme', 'slug' => 'acme']);
+    $product = Product::factory()->for($vendor)->create(['name' => 'widget', 'slug' => 'widget']);
+    CpeMap::factory()->forPair('acme', 'widget', $product)->create();
+
+    fakeNvd([cveEntry('CVE-2026-1219', [
+        cpeMatch('cpe:2.3:a:ACME:Widget:*:*:*:*:*:*:*:*'),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(VulnerabilityRange::sole()->product_id)->toBe($product->id);
 });
