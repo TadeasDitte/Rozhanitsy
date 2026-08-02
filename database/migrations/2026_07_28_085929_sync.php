@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('source_id')->unique()->constrained('sources')->cascadeOnDelete();
             $table->timestamp('last_synced_at')->nullable();
-            $table->unsignedInteger('last_index')->nullable();
             $table->timestamps();
         });
     }

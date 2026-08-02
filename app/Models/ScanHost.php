@@ -6,7 +6,6 @@ namespace App\Models;
 
 use Database\Factories\ScanHostFactory;
 use Illuminate\Auth\Authenticatable as AuthenticatableTrait;
-/** @use HasFactory<ScanHostFactory> */
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +32,10 @@ class ScanHost extends Model implements AuthenticatableContract
     protected $casts = [
         'last_seen_at' => 'datetime',
         'is_active' => 'boolean',
+    ];
+
+    protected $attributes = [
+        'is_active' => true,
     ];
 
     /**

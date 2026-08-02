@@ -21,7 +21,6 @@ class SyncStateFactory extends Factory
         return [
             'source_id' => Source::factory()->nvd(),
             'last_synced_at' => null,
-            'last_index' => null,
         ];
     }
 

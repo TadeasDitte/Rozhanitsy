@@ -320,3 +320,43 @@ test('cpe vendor and product are stored lowercased', function () {
 
     expect(VulnerabilityRange::sole()->product_id)->toBe($product->id);
 });
+
+test('the source is found by driver not by slug', function () {
+    $this->source->update(['slug' => 'nvd-mirror', 'name' => 'NVD Mirror']);
+
+    fakeNvd([cveEntry('CVE-2026-3001')]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(Vulnerability::sole()->source_id)->toBe($this->source->id);
+});
+
+test('it fails when no row declares the nvd driver', function () {
+    Http::fake();
+
+    $this->source->update(['driver' => null]);
+
+    $this->artisan('nvd:sync')->assertFailed();
+
+    Http::assertNothingSent();
+});
+
+test('the page size comes from the source row', function () {
+    $this->source->update(['page_size' => 500]);
+
+    fakeNvd([cveEntry('CVE-2026-3002')]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'resultsPerPage=500'));
+});
+
+test('it fails when the source row is missing its sync settings', function (string $column) {
+    Http::fake();
+
+    $this->source->update([$column => null]);
+
+    $this->artisan('nvd:sync')->assertFailed();
+
+    Http::assertNothingSent();
+})->with(['url', 'page_size', 'request_delay_ms', 'unauthenticated_request_delay_ms']);

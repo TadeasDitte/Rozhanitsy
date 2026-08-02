@@ -2,14 +2,18 @@
 
 namespace App\Providers;
 
+use App\Models\ScanHost;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +32,22 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureRateLimiting();
+        $this->configureScannerTokens();
+    }
+
+    protected function configureScannerTokens(): void
+    {
+        Sanctum::authenticateAccessTokensUsing(
+            function (PersonalAccessToken $accessToken, bool $isValid): bool {
+                $tokenable = $accessToken->tokenable;
+
+                if ($tokenable instanceof ScanHost) {
+                    return $isValid && $tokenable->is_active;
+                }
+
+                return $isValid;
+            }
+        );
     }
 
     protected function configureRateLimiting(): void
@@ -47,6 +67,8 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+
+        Model::preventLazyLoading(! app()->isProduction());
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

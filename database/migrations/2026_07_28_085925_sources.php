@@ -16,6 +16,13 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->string('name')->unique();
             $table->string('url')->nullable();
+
+            $table->string('driver')->nullable()->unique();
+
+            $table->unsignedInteger('page_size')->nullable();
+            $table->unsignedInteger('request_delay_ms')->nullable();
+            $table->unsignedInteger('unauthenticated_request_delay_ms')->nullable();
+
             $table->timestamps();
         });
     }

@@ -4,6 +4,8 @@ namespace App\Services;
 
 class VersionComparator
 {
+    private const SEGMENTS = 3;
+
     public function isAffected(string $installedVersion, ?string $start, bool $startIncl, ?string $end, bool $endIncl): bool
     {
         $installed = $this->normalize($installedVersion);
@@ -31,10 +33,16 @@ class VersionComparator
             $version = substr($version, 0, $plus);
         }
 
-        if (preg_match('/^[0-9]+(\.[0-9]+)*([-_.][a-zA-Z0-9.]+)?/', $version, $matches)) {
-            return $matches[0];
+        if (! preg_match('/^([0-9]+(?:\.[0-9]+)*)([-_.][a-zA-Z0-9.]+)?/', $version, $matches)) {
+            return $version;
         }
 
-        return $version;
+        $segments = explode('.', $matches[1]);
+
+        while (count($segments) < self::SEGMENTS) {
+            $segments[] = '0';
+        }
+
+        return implode('.', $segments).($matches[2] ?? '');
     }
 }

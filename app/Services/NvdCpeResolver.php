@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CpeMap;
 use App\Models\Product;
+use App\Models\VulnerabilityRange;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -31,8 +32,11 @@ class NvdCpeResolver
     {
         [$vendor, $product] = $this->parseCpe($cpeCriteria);
 
+        $vendor = $vendor !== null ? Str::lower($vendor) : null;
+        $product = $product !== null ? Str::lower($product) : null;
+
         if ($vendor === null || $product === null || $vendor === '' || $product === '' || $vendor === '*' || $product === '*') {
-            return ['product_id' => null, 'confidence' => 'unmatched'];
+            return ['product_id' => null, 'confidence' => VulnerabilityRange::MATCH_UNMATCHED];
         }
 
         $key = $vendor.'|'.$product;
@@ -63,24 +67,26 @@ class NvdCpeResolver
         if ($existing !== null) {
             return [
                 'product_id' => $existing->product_id,
-                'confidence' => $existing->match_type === 'fuzzy' ? 'fuzzy' : 'exact',
+                'confidence' => $existing->match_type === CpeMap::TYPE_FUZZY
+                    ? VulnerabilityRange::MATCH_FUZZY
+                    : VulnerabilityRange::MATCH_EXACT,
             ];
         }
 
         $match = $this->fuzzyMatch($vendor, $product);
 
         if ($match === null) {
-            return ['product_id' => null, 'confidence' => 'unmatched'];
+            return ['product_id' => null, 'confidence' => VulnerabilityRange::MATCH_UNMATCHED];
         }
 
         CpeMap::create([
             'cpe_vendor' => $vendor,
             'cpe_product' => $product,
             'product_id' => $match->id,
-            'match_type' => 'fuzzy',
+            'match_type' => CpeMap::TYPE_FUZZY,
         ]);
 
-        return ['product_id' => $match->id, 'confidence' => 'fuzzy'];
+        return ['product_id' => $match->id, 'confidence' => VulnerabilityRange::MATCH_FUZZY];
     }
 
     /**

@@ -12,6 +12,10 @@ class CpeMap extends Model
     /** @use HasFactory<CpeMapFactory> */
     use HasFactory;
 
+    public const TYPE_EXACT = 'exact';
+
+    public const TYPE_FUZZY = 'fuzzy';
+
     protected $table = 'cpe_map';
 
     protected $fillable = [
@@ -19,6 +23,10 @@ class CpeMap extends Model
         'cpe_product',
         'product_id',
         'match_type',
+    ];
+
+    protected $attributes = [
+        'match_type' => self::TYPE_EXACT,
     ];
 
     /**

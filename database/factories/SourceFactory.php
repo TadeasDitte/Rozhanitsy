@@ -21,6 +21,10 @@ class SourceFactory extends Factory
             'slug' => fake()->unique()->slug(2),
             'name' => fake()->unique()->company(),
             'url' => fake()->url(),
+            'driver' => null,
+            'page_size' => null,
+            'request_delay_ms' => null,
+            'unauthenticated_request_delay_ms' => null,
         ];
     }
 
@@ -30,6 +34,11 @@ class SourceFactory extends Factory
             'slug' => 'nvd',
             'name' => 'NIST NVD',
             'url' => 'https://services.nvd.nist.gov/rest/json/cves/2.0',
+            'driver' => 'nvd',
+            'page_size' => 2000,
+
+            'request_delay_ms' => 0,
+            'unauthenticated_request_delay_ms' => 0,
         ]);
     }
 }

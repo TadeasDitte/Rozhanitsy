@@ -26,4 +26,8 @@ class UnmatchedLookup extends Model
         'last_seen_at' => 'datetime',
         'hit_count' => 'integer',
     ];
+
+    protected $attributes = [
+        'hit_count' => 1,
+    ];
 }

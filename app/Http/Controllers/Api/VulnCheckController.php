@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckVulnerabilitiesRequest;
 use App\Models\CpeMap;
 use App\Models\ScanLog;
+use App\Models\UnmatchedLookup;
+use App\Models\Vulnerability;
+use App\Models\VulnerabilityRange;
 use App\Services\VersionComparator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * @phpstan-import-type ScannedComponent from CheckVulnerabilitiesRequest
@@ -20,20 +24,29 @@ class VulnCheckController extends Controller
         $components = $request->components();
         $tenantId = $request->tenantId();
 
+        $vendors = array_unique(array_map(Str::lower(...), array_column($components, 'vendor')));
+        $products = array_unique(array_map(Str::lower(...), array_column($components, 'product')));
+
         $cpeRows = CpeMap::query()
-            ->whereIn('cpe_vendor', array_unique(array_column($components, 'vendor')))
-            ->whereIn('cpe_product', array_unique(array_column($components, 'product')))
+            ->whereIn('cpe_vendor', $vendors)
+            ->whereIn('cpe_product', $products)
             ->get(['cpe_vendor', 'cpe_product', 'product_id'])
-            ->keyBy(fn (CpeMap $row): string => $row->cpe_vendor.'|'.$row->cpe_product);
+            ->keyBy(fn (CpeMap $row): string => Str::lower($row->cpe_vendor).'|'.Str::lower($row->cpe_product));
 
         /** @var list<array{vendor: string, product: string, local_id: string|null}> $unmatched */
         $unmatched = [];
+
+        /** @var array<string, array{0: string, 1: string}> $unmatchedPairs */
+        $unmatchedPairs = [];
 
         /** @var array<int, list<ScannedComponent>> $componentsByProduct */
         $componentsByProduct = [];
 
         foreach ($components as $component) {
-            $cpeRow = $cpeRows->get($component['vendor'].'|'.$component['product']);
+            $vendor = Str::lower($component['vendor']);
+            $product = Str::lower($component['product']);
+
+            $cpeRow = $cpeRows->get($vendor.'|'.$product);
 
             if ($cpeRow === null) {
                 $unmatched[] = [
@@ -41,6 +54,8 @@ class VulnCheckController extends Controller
                     'product' => $component['product'],
                     'local_id' => $component['local_id'] ?? null,
                 ];
+
+                $unmatchedPairs[$vendor.'|'.$product] = [$vendor, $product];
 
                 continue;
             }
@@ -52,8 +67,8 @@ class VulnCheckController extends Controller
             ? []
             : $this->matchRanges($componentsByProduct, $comparator);
 
-        if ($unmatched !== []) {
-            $this->recordUnmatched($unmatched);
+        if ($unmatchedPairs !== []) {
+            $this->recordUnmatched(array_values($unmatchedPairs));
         }
 
         ScanLog::create([
@@ -79,20 +94,23 @@ class VulnCheckController extends Controller
      */
     private function matchRanges(array $componentsByProduct, VersionComparator $comparator): array
     {
-        $ranges = DB::table('vulnerability_ranges')
-            ->join('vulnerabilities', 'vulnerabilities.id', '=', 'vulnerability_ranges.vulnerability_id')
-            ->whereIn('vulnerability_ranges.product_id', array_keys($componentsByProduct))
-            ->where('vulnerability_ranges.match_confidence', '!=', 'unmatched')
+        $rangeTable = (new VulnerabilityRange)->getTable();
+        $vulnerabilityTable = (new Vulnerability)->getTable();
+
+        $ranges = DB::table($rangeTable)
+            ->join($vulnerabilityTable, "{$vulnerabilityTable}.id", '=', "{$rangeTable}.vulnerability_id")
+            ->whereIn("{$rangeTable}.product_id", array_keys($componentsByProduct))
+            ->where("{$rangeTable}.match_confidence", '!=', VulnerabilityRange::MATCH_UNMATCHED)
             ->get([
-                'vulnerability_ranges.product_id',
-                'vulnerability_ranges.version_start',
-                'vulnerability_ranges.version_start_incl',
-                'vulnerability_ranges.version_end',
-                'vulnerability_ranges.version_end_incl',
-                'vulnerabilities.cve_id',
-                'vulnerabilities.cvss_score',
-                'vulnerabilities.cvss_vector',
-                'vulnerabilities.cvss_severity',
+                "{$rangeTable}.product_id",
+                "{$rangeTable}.version_start",
+                "{$rangeTable}.version_start_incl",
+                "{$rangeTable}.version_end",
+                "{$rangeTable}.version_end_incl",
+                "{$vulnerabilityTable}.cve_id",
+                "{$vulnerabilityTable}.cvss_score",
+                "{$vulnerabilityTable}.cvss_vector",
+                "{$vulnerabilityTable}.cvss_severity",
             ])
             ->groupBy('product_id');
 
@@ -147,32 +165,30 @@ class VulnCheckController extends Controller
     }
 
     /**
-     * @param  list<array{vendor: string, product: string, local_id: string|null}>  $unmatched
+     * @param  list<array{0: string, 1: string}>  $pairs  Normalized cpe_vendor / cpe_product pairs.
      */
-    private function recordUnmatched(array $unmatched): void
+    private function recordUnmatched(array $pairs): void
     {
         $now = now();
-
-        $rows = collect($unmatched)
-            ->unique(fn (array $row): string => $row['vendor'].'|'.$row['product'])
-            ->values();
 
         $placeholders = [];
         $bindings = [];
 
-        foreach ($rows as $row) {
+        foreach ($pairs as [$cpeVendor, $cpeProduct]) {
             $placeholders[] = '(?, ?, 1, ?, ?, ?, ?)';
-            array_push($bindings, $row['vendor'], $row['product'], $now, $now, $now, $now);
+            array_push($bindings, $cpeVendor, $cpeProduct, $now, $now, $now, $now);
         }
 
+        $table = (new UnmatchedLookup)->getTable();
+
         DB::statement(
-            'INSERT INTO unmatched_lookups (cpe_vendor, cpe_product, hit_count, first_seen_at, last_seen_at, created_at, updated_at)
-             VALUES '.implode(', ', $placeholders).'
+            "INSERT INTO {$table} (cpe_vendor, cpe_product, hit_count, first_seen_at, last_seen_at, created_at, updated_at)
+             VALUES ".implode(', ', $placeholders)."
              ON CONFLICT (cpe_vendor, cpe_product)
              DO UPDATE SET
-                 hit_count = unmatched_lookups.hit_count + 1,
+                 hit_count = {$table}.hit_count + 1,
                  last_seen_at = EXCLUDED.last_seen_at,
-                 updated_at = EXCLUDED.updated_at',
+                 updated_at = EXCLUDED.updated_at",
             $bindings,
         );
     }

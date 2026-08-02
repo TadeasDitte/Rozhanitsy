@@ -17,12 +17,10 @@ class SyncState extends Model
     protected $fillable = [
         'source_id',
         'last_synced_at',
-        'last_index',
     ];
 
     protected $casts = [
         'last_synced_at' => 'datetime',
-        'last_index' => 'integer',
     ];
 
     /**

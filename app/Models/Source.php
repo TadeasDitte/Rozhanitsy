@@ -17,6 +17,16 @@ class Source extends Model
         'slug',
         'name',
         'url',
+        'driver',
+        'page_size',
+        'request_delay_ms',
+        'unauthenticated_request_delay_ms',
+    ];
+
+    protected $casts = [
+        'page_size' => 'integer',
+        'request_delay_ms' => 'integer',
+        'unauthenticated_request_delay_ms' => 'integer',
     ];
 
     /**
