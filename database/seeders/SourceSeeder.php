@@ -13,8 +13,8 @@ class SourceSeeder extends Seeder
     public function run(): void
     {
         Source::updateOrCreate(
-            ['slug' => 'nvd'],
             [
+                'slug' => 'nvd',
                 'name' => 'NIST NVD',
                 'url' => 'https://services.nvd.nist.gov/rest/json/cves/2.0',
             ],

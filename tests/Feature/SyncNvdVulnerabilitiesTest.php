@@ -10,6 +10,8 @@ use App\Models\VulnerabilityRange;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
+    Http::preventStrayRequests();
+
     $this->source = Source::factory()->nvd()->create();
 });
 
