@@ -32,9 +32,6 @@ class CpeMapFactory extends Factory
         return $this->state(fn (array $attributes): array => ['match_type' => 'fuzzy']);
     }
 
-    /**
-     * Map a specific CPE pair onto an existing product.
-     */
     public function forPair(string $cpeVendor, string $cpeProduct, Product $product): static
     {
         return $this->state(fn (array $attributes): array => [

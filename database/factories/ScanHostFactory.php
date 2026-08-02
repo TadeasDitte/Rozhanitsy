@@ -18,6 +18,7 @@ class ScanHostFactory extends Factory
     public function definition(): array
     {
         return [
+            'user_id' => null,
             'hostname' => fake()->unique()->domainWord().'.example.com',
             'is_active' => true,
             'last_seen_at' => null,

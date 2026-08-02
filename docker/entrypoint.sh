@@ -1,6 +1,4 @@
 #!/bin/sh
-# Container start-up. Everything here is idempotent so `docker compose up`
-# needs no follow-up commands on a fresh host or an existing one.
 set -e
 
 role="${CONTAINER_ROLE:-app}"
@@ -19,9 +17,6 @@ wait_for_database() {
     done
 }
 
-# An APP_KEY that changes between restarts would silently invalidate sessions
-# and make already-encrypted columns unreadable, so a generated one is kept on
-# the storage volume rather than regenerated each boot.
 ensure_app_key() {
     [ -z "${APP_KEY:-}" ] || return 0
 
@@ -44,8 +39,6 @@ if [ "$role" = "app" ]; then
     php artisan db:seed --class=SourceSeeder --force --no-interaction
 fi
 
-# Caches are built at start-up, not at build time, so they capture the real
-# runtime environment rather than whatever was set while the image was built.
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

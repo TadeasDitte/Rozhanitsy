@@ -5,11 +5,6 @@ namespace App\Console\Commands;
 use App\Models\ScanHost;
 use Illuminate\Console\Command;
 
-/**
- * Registers a scanner machine and prints its bearer token.
- *
- * The plain-text token exists only at creation time, so it is printed once.
- */
 class CreateScanHost extends Command
 {
     protected $signature = 'scan-host:create {hostname : Identifier for the machine running the scanner} {--rotate : Revoke existing tokens and issue a fresh one}';

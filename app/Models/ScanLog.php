@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * One row per /api/vulns/check request, for per-tenant scan history.
- */
 class ScanLog extends Model
 {
     /** @use HasFactory<ScanLogFactory> */

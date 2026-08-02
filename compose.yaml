@@ -1,7 +1,5 @@
 name: rozhanitsy
 
-# Shared build + environment for the app and scheduler containers. They run the
-# same image; only CONTAINER_ROLE and the command differ.
 x-app: &app
   build:
     context: .
@@ -16,8 +14,6 @@ x-app-env: &app-env
   APP_ENV: production
   APP_DEBUG: "false"
   APP_URL: ${APP_URL:-http://localhost:8000}
-  # Optional. Left empty, the entrypoint generates one and persists it on the
-  # storage volume so it survives restarts.
   APP_KEY: ${APP_KEY:-}
   LOG_CHANNEL: stderr
   LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -33,12 +29,9 @@ x-app-env: &app-env
   CACHE_STORE: database
   QUEUE_CONNECTION: database
 
-  # Raises the NVD sync from 5 to 50 requests per 30s when set.
   NVD_API_KEY: ${NVD_API_KEY:-}
 
-  # Required when running behind a reverse proxy or load balancer, otherwise
-  # every standalone scanner collapses into a single IP rate-limit bucket.
-  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-*}
 
 services:
   app:
@@ -59,8 +52,6 @@ services:
       <<: *app-env
       CONTAINER_ROLE: scheduler
     command: ["php", "artisan", "schedule:work"]
-    # The image's healthcheck probes the HTTP server, which this container does
-    # not run; left enabled it would sit permanently unhealthy.
     healthcheck:
       disable: true
     depends_on:
@@ -76,8 +67,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rozhanitsy}
     volumes:
       - db:/var/lib/postgresql/data
-    # Deliberately not published to the host; the app reaches it over the
-    # compose network only.
     healthcheck:
       test:
         - CMD-SHELL

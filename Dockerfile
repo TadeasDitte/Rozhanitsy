@@ -2,13 +2,6 @@
 
 ARG PHP_IMAGE=dunglas/frankenphp:1-php8.5-alpine
 
-# ---------------------------------------------------------------------------
-# Build stage
-#
-# PHP dependencies and front-end assets are built together on purpose: the
-# Wayfinder Vite plugin shells out to `php artisan wayfinder:generate` during
-# `vite build`, so the asset build needs a bootable app with vendor/ present.
-# ---------------------------------------------------------------------------
 FROM ${PHP_IMAGE} AS build
 
 RUN install-php-extensions pdo_pgsql intl zip pcntl opcache
@@ -22,11 +15,8 @@ WORKDIR /app
 
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     COMPOSER_NO_INTERACTION=1 \
-    # Artisan boots during the build; a throwaway key keeps the encrypter happy
-    # and is never carried into the runtime image.
     APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
-# Dependency layers first so application edits do not invalidate them.
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
@@ -35,9 +25,6 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# .dockerignore strips the contents of these directories, and Docker does not
-# create a directory that ends up with no files in it. Artisan needs them to
-# exist before it will boot.
 RUN mkdir -p bootstrap/cache storage/framework/views storage/logs
 
 RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
@@ -45,9 +32,6 @@ RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
     && pnpm run build \
     && rm -rf node_modules
 
-# ---------------------------------------------------------------------------
-# Runtime stage
-# ---------------------------------------------------------------------------
 FROM ${PHP_IMAGE} AS runtime
 
 RUN install-php-extensions pdo_pgsql intl zip pcntl opcache
@@ -63,8 +47,6 @@ RUN addgroup -g 1000 -S app \
 
 COPY --from=build --chown=app:app /app /app
 
-# Plain COPY plus an explicit chmod, rather than COPY --chmod, so the image
-# also builds on daemons still using the legacy (non-BuildKit) builder.
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 
 RUN chmod 0755 /usr/local/bin/entrypoint \

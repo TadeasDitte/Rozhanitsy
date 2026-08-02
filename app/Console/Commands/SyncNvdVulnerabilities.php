@@ -17,14 +17,8 @@ class SyncNvdVulnerabilities extends Command
 
     protected $description = 'Pull CVE/CPE data from NVD and upsert into vulnerabilities + vulnerability_ranges';
 
-    /**
-     * The one irreducible binding between this parser and its sources row.
-     * Everything else about the feed — endpoint, page size, rate limits — is
-     * read from that row rather than hardcoded here.
-     */
     private const DRIVER = 'nvd';
 
-    /** Increasing backoff; the array length sets the retry count. */
     private const RETRY_BACKOFF_MILLISECONDS = [2_000, 5_000];
 
     public function handle(NvdCpeResolver $resolver): int
@@ -92,7 +86,6 @@ class SyncNvdVulnerabilities extends Command
             foreach ($page as $entry) {
                 $cve = $entry['cve'] ?? null;
 
-                /** One malformed entry must not abort the run and lose the rest of the page. */
                 if (! is_array($cve) || ! is_string($cve['id'] ?? null)) {
                     $this->warn("Skipping malformed CVE entry near index {$startIndex}.");
 
@@ -102,11 +95,6 @@ class SyncNvdVulnerabilities extends Command
                 $this->processCve($cve, $source, $resolver);
             }
 
-            /**
-             * Advance by what NVD actually returned. It degrades resultsPerPage
-             * under load, and stepping by the requested page size would skip the
-             * shortfall while still reporting success.
-             */
             $received = count($page);
 
             if ($received === 0) {
@@ -189,12 +177,6 @@ class SyncNvdVulnerabilities extends Command
         $startIncl = isset($match['versionStartIncluding']);
         $endIncl = isset($match['versionEndIncluding']);
 
-        /**
-         * NVD states a single affected release as a concrete version inside the
-         * CPE itself, with no range keys at all. Storing that as an unbounded
-         * range would mark every installed version vulnerable, so pin it to an
-         * inclusive point range. A "*" version really does mean all versions.
-         */
         if ($versionStart === null && $versionEnd === null) {
             $exactVersion = $this->exactVersionFrom($criteria);
 
@@ -218,10 +200,6 @@ class SyncNvdVulnerabilities extends Command
         ]);
     }
 
-    /**
-     * Field 5 of a CPE 2.3 URI is the version. "*" (ANY) and "-" (NA) are
-     * wildcards rather than real versions.
-     */
     private function exactVersionFrom(string $criteria): ?string
     {
         $version = explode(':', $criteria)[5] ?? null;
