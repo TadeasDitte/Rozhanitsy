@@ -23,6 +23,8 @@ class SyncNvdVulnerabilities extends Command
 
     public function handle(NvdCpeResolver $resolver): int
     {
+        ini_set('memory_limit', '256M');
+
         $source = Source::where('driver', self::DRIVER)->first();
 
         if ($source === null) {
@@ -109,6 +111,9 @@ class SyncNvdVulnerabilities extends Command
 
             $startIndex += $received;
             $this->info("Processed {$startIndex} / {$totalResults}");
+
+            unset($response, $data, $page);
+            gc_collect_cycles();
 
             if ($startIndex < $totalResults) {
                 usleep($delayMilliseconds * 1000);
