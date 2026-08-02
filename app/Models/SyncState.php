@@ -1,22 +1,35 @@
 <?php
+
 // app/Models/SyncState.php
 
 namespace App\Models;
 
+use Database\Factories\SyncStateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SyncState extends Model
 {
+    /** @use HasFactory<SyncStateFactory> */
     use HasFactory;
 
     protected $fillable = [
-        'source',
+        'source_id',
         'last_synced_at',
         'last_index',
     ];
 
     protected $casts = [
         'last_synced_at' => 'datetime',
+        'last_index' => 'integer',
     ];
+
+    /**
+     * @return BelongsTo<Source, $this>
+     */
+    public function source(): BelongsTo
+    {
+        return $this->belongsTo(Source::class);
+    }
 }
