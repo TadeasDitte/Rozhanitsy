@@ -15,8 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('vendor_id')->constrained('vendors')->onDelete('cascade');
             $table->string('name');
+            $table->string('slug');
             $table->enum('type', ['core', 'plugin', 'theme', 'extension', 'package', 'library']);
             $table->unique(['vendor_id', 'name']);
+            $table->unique(['vendor_id', 'slug']);
             $table->timestamps();
         });
     }

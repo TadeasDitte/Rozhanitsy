@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cpe_maps', function (Blueprint $table) {
+        Schema::create('cpe_map', function (Blueprint $table) {
             $table->id();
             $table->string('cpe_vendor');
             $table->string('cpe_product');
+            $table->foreignId('product_id')->constrained('products')->cascadeOnDelete();
             $table->enum('match_type', ['exact', 'fuzzy'])->default('exact');
             $table->timestamps();
-            $table->index(['cpe_vendor', 'cpe_product']);
+            $table->unique(['cpe_vendor', 'cpe_product']);
         });
-
     }
 
     /**

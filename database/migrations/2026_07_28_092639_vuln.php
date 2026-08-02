@@ -17,11 +17,12 @@ return new class extends Migration
             $table->decimal('cvss_score', 3, 1)->nullable();
             $table->string('cvss_vector')->nullable();
             $table->string('cvss_version')->nullable();
+            $table->string('cvss_severity')->nullable();
             $table->text('description')->nullable();
             $table->timestamp('published_at')->nullable();
             $table->timestamp('last_modified_at')->nullable();
             $table->foreignId('source_id')->constrained('sources');
-            $table->json('raw_cpe_config')->nullable();
+            $table->json('raw_data')->nullable();
             $table->timestamps();
             $table->index('cvss_score');
             $table->index('last_modified_at');

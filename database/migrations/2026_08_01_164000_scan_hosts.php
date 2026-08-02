@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('sync_states', function (Blueprint $table) {
+        Schema::create('scan_hosts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('source_id')->unique()->constrained('sources')->cascadeOnDelete();
-            $table->timestamp('last_synced_at')->nullable();
-            $table->unsignedInteger('last_index')->nullable();
+            $table->string('hostname')->unique();
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
         });
     }
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('sync_states');
+        Schema::dropIfExists('scan_hosts');
     }
 };
