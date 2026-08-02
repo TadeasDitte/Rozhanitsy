@@ -47,6 +47,63 @@ database credentials.
 Sessions, cache, and queue all use the database. There is no Redis dependency
 and no queue worker, because nothing dispatches jobs.
 
+Those ten are the only variables that do anything. Compose reads `.env` to
+interpolate `${...}` in `compose.yaml`; a variable not referenced there never
+reaches a container. The file is never copied into the image — `.dockerignore`
+excludes it — so on a server it serves only Compose, not Laravel.
+
+### .env template
+
+Place next to `compose.yaml`:
+
+```ini
+APP_URL=https://rozhanitsy.example.com
+APP_PORT=8000
+
+POSTGRES_DB=rozhanitsy
+POSTGRES_USER=rozhanitsy
+POSTGRES_PASSWORD=generate-a-long-random-one
+
+NVD_API_KEY=
+TRUSTED_PROXIES=*
+LOG_LEVEL=info
+
+# Optional. Omit and the entrypoint generates one onto the storage volume.
+# Set it here and the storage volume becomes disposable for backup purposes. 
+# APP_KEY=base64:...
+```
+
+```bash
+# generate APP_KEY
+echo "base64:$(openssl rand -base64 32)"
+```
+
+```bash
+chmod 600 .env
+```
+
+Already covered by `.gitignore`. Values are taken literally: a password
+containing `$`, `!`, or spaces needs no escaping, and quotes are stripped.
+Inline `#` starts a comment, so avoid it inside values.
+
+### Changing POSTGRES_PASSWORD later
+
+`POSTGRES_PASSWORD` is read by Postgres only when it initialises an empty data
+directory. Editing it in `.env` afterwards changes what the app connects with
+but not what the database expects, and the app container goes unhealthy with
+`FATAL: password authentication failed`.
+
+Change it in both places:
+
+```bash
+docker compose exec db psql -U rozhanitsy -c "ALTER USER rozhanitsy WITH PASSWORD 'new';"
+# edit .env to match
+docker compose up -d
+```
+
+Or, on a fresh install with nothing to lose, `docker compose down -v` and start
+again.
+
 ### APP_KEY
 
 If `APP_KEY` is unset, the entrypoint generates one and writes it to
