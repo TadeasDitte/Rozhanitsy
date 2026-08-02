@@ -4,14 +4,10 @@ Vulnerability intelligence service. Ingests the NVD CVE feed, normalises it into
 version ranges, and answers batched "is this component inventory vulnerable"
 queries over HTTP.
 
-| Document | Contents |
-| --- | --- |
-| [api.md](api.md) | Scanner API: auth, request, response, errors, rate limits |
-| [cli.md](cli.md) | Artisan commands |
-| [deployment.md](deployment.md) | Docker, environment variables, reverse proxy |
-| [operations.md](operations.md) | Sync timings, disk, backups, migrations, monitoring |
-| [schema.md](schema.md) | Tables, matching pipeline, CPE resolution |
-| [web.md](web.md) | Web UI, accounts, admin |
+
+## Documentation
+
+Read more on the github [wiki](https://github.com/TadeasDitte/Rozhanitsy/wiki) for this repo
 
 ## Components
 
@@ -36,3 +32,8 @@ scanner ──POST /api/vulns/check──▶ cpe_map lookup ──▶ vulnerabil
 Two database reads per request regardless of payload size. Version comparison is
 in-memory. Fuzzy CPE resolution happens only during ingest, never on the request
 path.
+
+
+## Notice
+
+This product uses the NVD API but is not endorsed or certified by the NVD.
