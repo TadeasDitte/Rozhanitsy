@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Comma-separated proxy addresses, or "*" to trust any. This must be set
+    | when running behind a reverse proxy or load balancer: the scanner rate
+    | limiter falls back to the client IP for standalone installs, and without
+    | it every one of them appears as the proxy and shares a single bucket.
+    |
+    */
+
+    'trusted_proxies' => env('TRUSTED_PROXIES'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

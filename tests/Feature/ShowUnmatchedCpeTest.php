@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Artisan;
  */
 function runUnmatched(string $arguments = ''): string
 {
+    /** Force the lazy migration before capturing, see CreateScanHostTest. */
+    UnmatchedLookup::query()->exists();
+
     Artisan::call(trim("nvd:unmatched {$arguments}"));
 
     return Artisan::output();

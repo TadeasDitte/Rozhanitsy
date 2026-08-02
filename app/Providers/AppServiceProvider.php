@@ -6,6 +6,7 @@ use App\Models\ScanHost;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,22 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureRateLimiting();
         $this->configureScannerTokens();
+        $this->configureTrustedProxies();
+    }
+
+    /**
+     * Configured here rather than in bootstrap/app.php because the config
+     * service is not bound yet while the middleware stack is being built.
+     */
+    protected function configureTrustedProxies(): void
+    {
+        $proxies = config('app.trusted_proxies');
+
+        if (! is_string($proxies) || $proxies === '') {
+            return;
+        }
+
+        TrustProxies::at($proxies === '*' ? '*' : explode(',', $proxies));
     }
 
     protected function configureScannerTokens(): void

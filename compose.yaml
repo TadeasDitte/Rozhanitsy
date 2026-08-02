@@ -1,0 +1,92 @@
+name: rozhanitsy
+
+# Shared build + environment for the app and scheduler containers. They run the
+# same image; only CONTAINER_ROLE and the command differ.
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: rozhanitsy-app
+  restart: unless-stopped
+  volumes:
+    - storage:/app/storage
+
+x-app-env: &app-env
+  APP_NAME: ${APP_NAME:-Rozhanitsy}
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_URL: ${APP_URL:-http://localhost:8000}
+  # Optional. Left empty, the entrypoint generates one and persists it on the
+  # storage volume so it survives restarts.
+  APP_KEY: ${APP_KEY:-}
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+  DB_CONNECTION: pgsql
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: ${POSTGRES_DB:-rozhanitsy}
+  DB_USERNAME: ${POSTGRES_USER:-rozhanitsy}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-rozhanitsy}
+
+  SESSION_DRIVER: database
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+
+  # Raises the NVD sync from 5 to 50 requests per 30s when set.
+  NVD_API_KEY: ${NVD_API_KEY:-}
+
+  # Required when running behind a reverse proxy or load balancer, otherwise
+  # every standalone scanner collapses into a single IP rate-limit bucket.
+  TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
+services:
+  app:
+    <<: *app
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: app
+      SERVER_NAME: ":8080"
+    ports:
+      - "${APP_PORT:-8000}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: scheduler
+    command: ["php", "artisan", "schedule:work"]
+    # The image's healthcheck probes the HTTP server, which this container does
+    # not run; left enabled it would sit permanently unhealthy.
+    healthcheck:
+      disable: true
+    depends_on:
+      app:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rozhanitsy}
+      POSTGRES_USER: ${POSTGRES_USER:-rozhanitsy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rozhanitsy}
+    volumes:
+      - db:/var/lib/postgresql/data
+    # Deliberately not published to the host; the app reaches it over the
+    # compose network only.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${POSTGRES_USER:-rozhanitsy}" -d "${POSTGRES_DB:-rozhanitsy}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  db:
+  storage:
