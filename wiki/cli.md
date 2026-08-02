@@ -98,6 +98,41 @@ A successful fuzzy match also writes the `cpe_map` row, exactly as `nvd:sync`
 would, so the live `/api/vulns/check` path benefits immediately without
 waiting on the next sync.
 
+## nvd:rebuild-ranges
+
+```
+php artisan nvd:rebuild-ranges
+```
+
+Rebuilds `vulnerability_ranges` for every `Vulnerability`, from its own stored
+`raw_data` — the full CVE JSON kept at ingest time — via the same
+`VulnerabilityRangeBuilder` `nvd:sync` uses. Pure database work, no NVD
+request, and it re-resolves CPEs against the current catalog as a side effect,
+so it supersedes `nvd:relink`: running both after the same event is redundant,
+run this one.
+
+This exists for schema/parsing changes, not routine use — a change to how a
+CVE's `configurations` gets turned into ranges (e.g. the `group_index`/
+`clause_index` AND-grouping added in 2026-08) only affects rows created after
+the change until existing rows are rebuilt. `raw_data` makes that a local
+operation instead of a multi-hour `nvd:sync --full` against the live API. See
+schema.md's [vulnerability_ranges](schema.md#vulnerability_ranges).
+
+Run it once, after a deploy that changes range-building logic. Not scheduled,
+not run by the entrypoint — rewrites the whole table, which is wasted work on
+every container restart when nothing changed.
+
+```bash
+php artisan nvd:rebuild-ranges
+```
+
+```
+Rebuilt 2000 vulnerabilities.
+Rebuilt 4000 vulnerabilities.
+...
+Done. Rebuilt ranges for 372520 vulnerabilities.
+```
+
 ## scan-host:create
 
 ```

@@ -55,6 +55,21 @@ function cpeMatch(string $criteria, array $overrides = []): array
     return array_merge(['vulnerable' => true, 'criteria' => $criteria], $overrides);
 }
 
+/**
+ * Like cveEntry(), but lets the caller supply `configurations` directly
+ * instead of the single-node-single-configuration shape cveEntry() builds.
+ *
+ * @param  array<int, array<string, mixed>>  $configurations
+ * @return array<string, mixed>
+ */
+function cveEntryWithConfigurations(string $cveId, array $configurations): array
+{
+    $entry = cveEntry($cveId);
+    $entry['cve']['configurations'] = $configurations;
+
+    return $entry;
+}
+
 function fakeNvd(array $vulnerabilities, int $totalResults = 1): void
 {
     Http::fake([
@@ -360,3 +375,83 @@ test('it fails when the source row is missing its sync settings', function (stri
 
     Http::assertNothingSent();
 })->with(['url', 'page_size', 'request_delay_ms', 'unauthenticated_request_delay_ms']);
+
+/**
+ * NVD's "vulnerable only if A and B are both present" shape: a configuration
+ * with operator AND and more than one node. Each node becomes its own clause.
+ */
+test('an AND configuration assigns each node its own clause index', function () {
+    fakeNvd([cveEntryWithConfigurations('CVE-2026-5001', [
+        [
+            'operator' => 'AND',
+            'nodes' => [
+                ['cpeMatch' => [cpeMatch('cpe:2.3:a:westerndeal:advanced_dewplayer:1.2:*:*:*:*:*:*:*')]],
+                ['cpeMatch' => [cpeMatch('cpe:2.3:a:wordpress:wordpress:-:*:*:*:*:*:*:*')]],
+            ],
+        ],
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $ranges = VulnerabilityRange::orderBy('id')->get();
+
+    expect($ranges)->toHaveCount(2)
+        ->and($ranges[0]->group_index)->toBe(0)
+        ->and($ranges[0]->clause_index)->toBe(0)
+        ->and($ranges[0]->raw_cpe)->toContain('advanced_dewplayer')
+        ->and($ranges[1]->group_index)->toBe(0)
+        ->and($ranges[1]->clause_index)->toBe(1)
+        ->and($ranges[1]->raw_cpe)->toContain('wordpress');
+});
+
+/** A single-node config, or a config with no explicit AND operator, collapses to one clause — today's behavior, unchanged. */
+test('an OR configuration keeps every node in the same clause', function () {
+    fakeNvd([cveEntryWithConfigurations('CVE-2026-5002', [
+        [
+            'operator' => 'OR',
+            'nodes' => [
+                ['cpeMatch' => [cpeMatch('cpe:2.3:a:acme:widget:1.0:*:*:*:*:*:*:*')]],
+                ['cpeMatch' => [cpeMatch('cpe:2.3:a:acme:widget:2.0:*:*:*:*:*:*:*')]],
+            ],
+        ],
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $ranges = VulnerabilityRange::get();
+
+    expect($ranges)->toHaveCount(2)
+        ->and($ranges->pluck('group_index')->unique()->all())->toBe([0])
+        ->and($ranges->pluck('clause_index')->unique()->all())->toBe([0]);
+});
+
+/** Multiple independent configurations are implicitly OR'd at the top level and get their own group. */
+test('multiple configurations increment the group index', function () {
+    fakeNvd([cveEntryWithConfigurations('CVE-2026-5003', [
+        ['nodes' => [['cpeMatch' => [cpeMatch('cpe:2.3:a:acme:widget:1.0:*:*:*:*:*:*:*')]]]],
+        ['nodes' => [['cpeMatch' => [cpeMatch('cpe:2.3:a:acme:widget:2.0:*:*:*:*:*:*:*')]]]],
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(VulnerabilityRange::pluck('group_index')->sort()->values()->all())->toBe([0, 1]);
+});
+
+test('a negated node is skipped without affecting its siblings', function () {
+    fakeNvd([cveEntryWithConfigurations('CVE-2026-5004', [
+        [
+            'operator' => 'AND',
+            'nodes' => [
+                ['negate' => true, 'cpeMatch' => [cpeMatch('cpe:2.3:a:acme:excluded:*:*:*:*:*:*:*:*')]],
+                ['cpeMatch' => [cpeMatch('cpe:2.3:a:acme:widget:1.0:*:*:*:*:*:*:*')]],
+            ],
+        ],
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->raw_cpe)->toContain('widget')
+        ->and($range->clause_index)->toBe(0);
+});

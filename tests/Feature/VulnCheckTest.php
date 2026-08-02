@@ -349,6 +349,104 @@ test('unmatched lookups are recorded lowercased and deduplicated across casings'
         ->and($lookup->hit_count)->toBe(1);
 });
 
+/**
+ * The reported bug: a CVE that only applies when a plugin AND WordPress are
+ * both present must not be reported against WordPress core alone just
+ * because WordPress happens to be one of the AND clauses.
+ */
+test('an AND-group CVE requires every clause satisfied before it applies', function () {
+    $plugin = Product::factory()->plugin()->create();
+    $wordpress = Product::factory()->create();
+    CpeMap::factory()->forPair('westerndeal', 'advanced_dewplayer', $plugin)->create();
+    CpeMap::factory()->forPair('wordpress', 'wordpress', $wordpress)->create();
+
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2013-7240']);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 0)
+        ->affecting('1.2', '1.2', true, true)
+        ->create(['product_id' => $plugin->id]);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 1)
+        ->affecting(null, null)
+        ->create(['product_id' => $wordpress->id]);
+
+    postCheck([
+        'components' => [
+            ['vendor' => 'wordpress', 'product' => 'wordpress', 'version' => '6.9.0'],
+        ],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+
+    postCheck([
+        'components' => [
+            ['vendor' => 'westerndeal', 'product' => 'advanced_dewplayer', 'version' => '1.2'],
+        ],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+});
+
+test('an AND-group CVE applies once every clause is satisfied, attributed to the bounded clause', function () {
+    $plugin = Product::factory()->plugin()->create();
+    $wordpress = Product::factory()->create();
+    CpeMap::factory()->forPair('westerndeal', 'advanced_dewplayer', $plugin)->create();
+    CpeMap::factory()->forPair('wordpress', 'wordpress', $wordpress)->create();
+
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2013-7240']);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 0)
+        ->affecting('1.2', '1.2', true, true)
+        ->create(['product_id' => $plugin->id]);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 1)
+        ->affecting(null, null)
+        ->create(['product_id' => $wordpress->id]);
+
+    postCheck([
+        'components' => [
+            ['vendor' => 'westerndeal', 'product' => 'advanced_dewplayer', 'version' => '1.2', 'local_id' => 'plugins/dewplayer'],
+            ['vendor' => 'wordpress', 'product' => 'wordpress', 'version' => '6.9.0', 'local_id' => 'core'],
+        ],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.product', 'advanced_dewplayer')
+        ->assertJsonPath('vulnerable.0.local_id', 'plugins/dewplayer');
+});
+
+/** A clause whose product was never scanned at all can never be satisfied. */
+test('an AND-group clause referencing an uncataloged product never completes', function () {
+    $plugin = Product::factory()->plugin()->create();
+    CpeMap::factory()->forPair('westerndeal', 'advanced_dewplayer', $plugin)->create();
+    // No CpeMap/Product for wordpress/wordpress at all — the platform clause is unresolvable.
+
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2013-7240']);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 0)
+        ->affecting('1.2', '1.2', true, true)
+        ->create(['product_id' => $plugin->id]);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 1)
+        ->affecting(null, null)
+        ->unmatched()
+        ->create(['raw_cpe' => 'cpe:2.3:a:wordpress:wordpress:-:*:*:*:*:*:*:*']);
+
+    postCheck([
+        'components' => [
+            ['vendor' => 'westerndeal', 'product' => 'advanced_dewplayer', 'version' => '1.2'],
+        ],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+});
+
+test('a single-clause cve still matches exactly like before the AND-group change', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-7001']);
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-7001');
+});
+
 test('a deactivated scan host cannot authenticate', function () {
     $host = ScanHost::factory()->inactive()->create();
 

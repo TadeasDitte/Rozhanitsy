@@ -100,6 +100,13 @@ spec, and both sides are folded before lookup.
 `vulnerable` contains one entry per component/CVE pair. A CVE that matches a
 component through several CPE ranges is reported once for that component.
 
+Some CVEs only apply when two components are both present — e.g. a plugin
+that requires a specific CMS as its platform. For those, `vulnerable` reports
+the component that's actually vulnerable (the one with a real version range),
+not the platform-requirement component, and only once every such requirement
+is satisfied somewhere in the submitted inventory. See schema.md's
+[Matching](schema.md#matching).
+
 `unmatched` lists components with no `cpe_map` entry. It is not an error — it
 means no mapping exists yet. Vendor and product are echoed with the caller's
 original casing. Each distinct pair is also recorded in `unmatched_lookups` with

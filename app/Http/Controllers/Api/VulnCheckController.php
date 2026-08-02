@@ -39,10 +39,10 @@ class VulnCheckController extends Controller
         /** @var array<string, array{0: string, 1: string}> $unmatchedPairs */
         $unmatchedPairs = [];
 
-        /** @var array<int, list<ScannedComponent>> $componentsByProduct */
+        /** @var array<int, array<int, ScannedComponent>> $componentsByProduct */
         $componentsByProduct = [];
 
-        foreach ($components as $component) {
+        foreach ($components as $index => $component) {
             $vendor = Str::lower($component['vendor']);
             $product = Str::lower($component['product']);
 
@@ -60,7 +60,7 @@ class VulnCheckController extends Controller
                 continue;
             }
 
-            $componentsByProduct[$cpeRow->product_id][] = $component;
+            $componentsByProduct[$cpeRow->product_id][$index] = $component;
         }
 
         $vulnerable = $componentsByProduct === []
@@ -89,20 +89,47 @@ class VulnCheckController extends Controller
     }
 
     /**
-     * @param  array<int, list<ScannedComponent>>  $componentsByProduct
+     * A CVE's ranges are grouped by `group_index` (independently-OR'd
+     * applicability scenarios, i.e. matching the source CVE's own
+     * `configurations` array) and, within a group, by `clause_index` (nodes
+     * an "AND" configuration combined — every clause must be satisfied,
+     * possibly by different products, for the group to apply). Rows sharing
+     * both indexes are plain OR alternatives, which is the whole of what
+     * every CVE looked like before `clause_index` existed.
+     *
+     * Attribution prefers components that satisfied a *bounded* clause (a
+     * real version range) over ones that only satisfied an unbounded
+     * "platform present, any version" clause — the latter is how NVD encodes
+     * "plugin X requires WordPress installed", not "WordPress itself is
+     * vulnerable". Falls back to every satisfying component only when a
+     * satisfied group has no bounded clause at all.
+     *
+     * @param  array<int, array<int, ScannedComponent>>  $componentsByProduct
      * @return list<array<string, mixed>>
      */
     private function matchRanges(array $componentsByProduct, VersionComparator $comparator): array
     {
         $rangeTable = (new VulnerabilityRange)->getTable();
         $vulnerabilityTable = (new Vulnerability)->getTable();
+        $productIds = array_keys($componentsByProduct);
 
-        $ranges = DB::table($rangeTable)
+        // The outer fetch must NOT exclude unmatched rows: an AND-group clause
+        // whose product never resolved has to still be visible as a clause
+        // that exists, so it correctly fails to complete, rather than being
+        // invisible and letting the group look complete by omission.
+        $rows = DB::table($rangeTable)
             ->join($vulnerabilityTable, "{$vulnerabilityTable}.id", '=', "{$rangeTable}.vulnerability_id")
-            ->whereIn("{$rangeTable}.product_id", array_keys($componentsByProduct))
-            ->where("{$rangeTable}.match_confidence", '!=', VulnerabilityRange::MATCH_UNMATCHED)
+            ->whereIn("{$rangeTable}.vulnerability_id", function ($query) use ($rangeTable, $productIds): void {
+                $query->select('vulnerability_id')
+                    ->from($rangeTable)
+                    ->whereIn('product_id', $productIds)
+                    ->where('match_confidence', '!=', VulnerabilityRange::MATCH_UNMATCHED);
+            })
             ->get([
+                "{$rangeTable}.vulnerability_id",
                 "{$rangeTable}.product_id",
+                "{$rangeTable}.group_index",
+                "{$rangeTable}.clause_index",
                 "{$rangeTable}.version_start",
                 "{$rangeTable}.version_start_incl",
                 "{$rangeTable}.version_end",
@@ -111,41 +138,71 @@ class VulnCheckController extends Controller
                 "{$vulnerabilityTable}.cvss_score",
                 "{$vulnerabilityTable}.cvss_vector",
                 "{$vulnerabilityTable}.cvss_severity",
-            ])
-            ->groupBy('product_id');
+            ]);
 
         $vulnerable = [];
+        $seen = [];
 
-        foreach ($componentsByProduct as $productId => $componentsForProduct) {
-            $rangesForProduct = $ranges->get($productId);
+        foreach ($rows->groupBy('vulnerability_id') as $vulnerabilityRows) {
+            $cveMeta = $vulnerabilityRows->first();
+            $cveId = (string) $cveMeta->cve_id;
 
-            if ($rangesForProduct === null) {
-                continue;
-            }
+            foreach ($vulnerabilityRows->groupBy('group_index') as $groupRows) {
+                $matchesByClause = [];
+                $groupSatisfied = true;
 
-            foreach ($componentsForProduct as $component) {
-                $seenCveIds = [];
+                foreach ($groupRows->groupBy('clause_index') as $clauseIndex => $clauseRows) {
+                    $clauseMatches = [];
 
-                foreach ($rangesForProduct as $range) {
-                    $cveId = (string) $range->cve_id;
+                    foreach ($clauseRows as $range) {
+                        foreach ($componentsByProduct[$range->product_id] ?? [] as $componentIndex => $component) {
+                            $isAffected = $comparator->isAffected(
+                                $component['version'],
+                                $range->version_start !== null ? (string) $range->version_start : null,
+                                (bool) $range->version_start_incl,
+                                $range->version_end !== null ? (string) $range->version_end : null,
+                                (bool) $range->version_end_incl,
+                            );
 
-                    if (isset($seenCveIds[$cveId])) {
+                            if (! $isAffected) {
+                                continue;
+                            }
+
+                            $clauseMatches[] = [
+                                'index' => $componentIndex,
+                                'component' => $component,
+                                'bounded' => $range->version_start !== null || $range->version_end !== null,
+                            ];
+                        }
+                    }
+
+                    if ($clauseMatches === []) {
+                        $groupSatisfied = false;
+
+                        break;
+                    }
+
+                    $matchesByClause[$clauseIndex] = $clauseMatches;
+                }
+
+                if (! $groupSatisfied) {
+                    continue;
+                }
+
+                $allMatches = collect($matchesByClause)->flatten(1);
+                $bounded = $allMatches->where('bounded', true);
+                $attribution = $bounded->isNotEmpty() ? $bounded : $allMatches;
+
+                foreach ($attribution as $match) {
+                    $seenKey = $match['index'].'|'.$cveId;
+
+                    if (isset($seen[$seenKey])) {
                         continue;
                     }
 
-                    $isAffected = $comparator->isAffected(
-                        $component['version'],
-                        $range->version_start !== null ? (string) $range->version_start : null,
-                        (bool) $range->version_start_incl,
-                        $range->version_end !== null ? (string) $range->version_end : null,
-                        (bool) $range->version_end_incl,
-                    );
+                    $seen[$seenKey] = true;
 
-                    if (! $isAffected) {
-                        continue;
-                    }
-
-                    $seenCveIds[$cveId] = true;
+                    $component = $match['component'];
 
                     $vulnerable[] = [
                         'vendor' => $component['vendor'],
@@ -153,9 +210,9 @@ class VulnCheckController extends Controller
                         'local_id' => $component['local_id'] ?? null,
                         'installed_version' => $component['version'],
                         'cve_id' => $cveId,
-                        'cvss_score' => $range->cvss_score !== null ? (float) $range->cvss_score : null,
-                        'cvss_vector' => $range->cvss_vector,
-                        'cvss_severity' => $range->cvss_severity,
+                        'cvss_score' => $cveMeta->cvss_score !== null ? (float) $cveMeta->cvss_score : null,
+                        'cvss_vector' => $cveMeta->cvss_vector,
+                        'cvss_severity' => $cveMeta->cvss_severity,
                     ];
                 }
             }

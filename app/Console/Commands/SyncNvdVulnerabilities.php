@@ -5,8 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Source;
 use App\Models\SyncState;
 use App\Models\Vulnerability;
-use App\Models\VulnerabilityRange;
-use App\Services\NvdCpeResolver;
+use App\Services\VulnerabilityRangeBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +20,7 @@ class SyncNvdVulnerabilities extends Command
 
     private const RETRY_BACKOFF_MILLISECONDS = [2_000, 5_000];
 
-    public function handle(NvdCpeResolver $resolver): int
+    public function handle(VulnerabilityRangeBuilder $builder): int
     {
         ini_set('memory_limit', '256M');
 
@@ -94,7 +93,7 @@ class SyncNvdVulnerabilities extends Command
                     continue;
                 }
 
-                $this->processCve($cve, $source, $resolver);
+                $this->processCve($cve, $source, $builder);
             }
 
             $received = count($page);
@@ -130,9 +129,9 @@ class SyncNvdVulnerabilities extends Command
     /**
      * @param  array<string, mixed>  $cve
      */
-    private function processCve(array $cve, Source $source, NvdCpeResolver $resolver): void
+    private function processCve(array $cve, Source $source, VulnerabilityRangeBuilder $builder): void
     {
-        DB::transaction(function () use ($cve, $source, $resolver): void {
+        DB::transaction(function () use ($cve, $source, $builder): void {
             $vulnerability = Vulnerability::updateOrCreate(
                 ['cve_id' => $cve['id']],
                 [
@@ -148,72 +147,8 @@ class SyncNvdVulnerabilities extends Command
                 ]
             );
 
-            VulnerabilityRange::where('vulnerability_id', $vulnerability->id)->delete();
-
-            foreach ($cve['configurations'] ?? [] as $configuration) {
-                foreach ($configuration['nodes'] ?? [] as $node) {
-                    foreach ($node['cpeMatch'] ?? [] as $match) {
-                        if (! ($match['vulnerable'] ?? true)) {
-                            continue;
-                        }
-
-                        $this->storeRange($vulnerability, $match, $resolver);
-                    }
-                }
-            }
+            $builder->build($vulnerability, $cve);
         });
-    }
-
-    /**
-     * @param  array<string, mixed>  $match
-     */
-    private function storeRange(Vulnerability $vulnerability, array $match, NvdCpeResolver $resolver): void
-    {
-        $criteria = $match['criteria'] ?? null;
-
-        if (! is_string($criteria)) {
-            return;
-        }
-
-        $resolved = $resolver->resolve($criteria);
-
-        $versionStart = $match['versionStartIncluding'] ?? $match['versionStartExcluding'] ?? null;
-        $versionEnd = $match['versionEndIncluding'] ?? $match['versionEndExcluding'] ?? null;
-        $startIncl = isset($match['versionStartIncluding']);
-        $endIncl = isset($match['versionEndIncluding']);
-
-        if ($versionStart === null && $versionEnd === null) {
-            $exactVersion = $this->exactVersionFrom($criteria);
-
-            if ($exactVersion !== null) {
-                $versionStart = $exactVersion;
-                $versionEnd = $exactVersion;
-                $startIncl = true;
-                $endIncl = true;
-            }
-        }
-
-        VulnerabilityRange::create([
-            'vulnerability_id' => $vulnerability->id,
-            'product_id' => $resolved['product_id'],
-            'match_confidence' => $resolved['confidence'],
-            'version_start' => $versionStart,
-            'version_start_incl' => $startIncl,
-            'version_end' => $versionEnd,
-            'version_end_incl' => $endIncl,
-            'raw_cpe' => $criteria,
-        ]);
-    }
-
-    private function exactVersionFrom(string $criteria): ?string
-    {
-        $version = explode(':', $criteria)[5] ?? null;
-
-        if (! is_string($version) || $version === '' || $version === '*' || $version === '-') {
-            return null;
-        }
-
-        return $version;
     }
 
     /**
