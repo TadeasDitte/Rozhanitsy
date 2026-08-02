@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\ScanHost;
 use App\Models\ScanLog;
 use App\Models\SyncState;
 use App\Models\UnmatchedLookup;
 use App\Models\User;
+use App\Models\Vendor;
 use App\Models\Vulnerability;
 use App\Models\VulnerabilityRange;
 use Inertia\Inertia;
@@ -25,6 +27,8 @@ class DashboardController extends Controller
                 'admins' => User::where('is_admin', true)->count(),
                 'hosts' => ScanHost::count(),
                 'activeHosts' => ScanHost::where('is_active', true)->count(),
+                'vendors' => Vendor::count(),
+                'products' => Product::count(),
                 'vulnerabilities' => Vulnerability::count(),
                 'resolvedRanges' => VulnerabilityRange::resolved()->count(),
                 'unmatchedRanges' => VulnerabilityRange::unmatched()->count(),

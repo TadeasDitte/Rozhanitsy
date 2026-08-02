@@ -9,8 +9,17 @@ docker compose exec app php artisan scan-host:create scanner-01.example.com
 
 The first command is sufficient on a clean host. The entrypoint generates and
 persists an `APP_KEY`, waits for Postgres, runs migrations, seeds the NVD source
-row, and warms the config, route, view, and event caches. The application is on
-`http://localhost:8000`.
+row and a starter `products`/`vendors` catalog, and warms the config, route,
+view, and event caches. The application is on `http://localhost:8000`.
+
+The starter catalog (`VendorSeeder`/`ProductSeeder`) covers common software —
+WordPress, Joomla, Drupal, PHP, OpenSSL, nginx, Apache, MySQL, phpMyAdmin and a
+handful of plugins each. It is not exhaustive. Extend it from
+`/admin/products` as scans report gaps; see
+[schema.md](schema.md#vendors-and-products) for why nothing does this
+automatically. After adding a product to an install that has already run
+`nvd:sync`, follow with `php artisan nvd:relink` — the new product does not
+retroactively resolve CVEs already stored as unmatched.
 
 Register the first account through the web UI; it becomes the administrator.
 

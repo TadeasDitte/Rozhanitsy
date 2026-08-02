@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ScanTokenController;
@@ -23,6 +24,9 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('admin')->name('adm
     Route::post('users/{user}/admin', [UserController::class, 'promote'])->name('users.promote');
     Route::delete('users/{user}/admin', [UserController::class, 'demote'])->name('users.demote');
     Route::delete('scan-hosts/{scanHost}/token', [UserController::class, 'revoke'])->name('scan-hosts.revoke');
+    Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 });
 
 require __DIR__.'/settings.php';

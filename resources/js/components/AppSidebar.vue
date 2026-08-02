@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { usePage } from '@inertiajs/vue3';
-import { KeyRound, LayoutGrid, ShieldCheck, Users } from '@lucide/vue';
+import { KeyRound, LayoutGrid, Package, ShieldCheck, Users } from '@lucide/vue';
 import { computed } from 'vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 import { dashboard as adminDashboard } from '@/routes/admin';
+import { index as adminProducts } from '@/routes/admin/products';
 import { index as adminUsers } from '@/routes/admin/users';
 import { index as tokensIndex } from '@/routes/tokens';
 import type { NavItem } from '@/types';
@@ -34,6 +35,7 @@ const mainNavItems = computed<NavItem[]>(() => {
         items.push(
             { title: 'Admin', href: adminDashboard(), icon: ShieldCheck },
             { title: 'Users', href: adminUsers(), icon: Users },
+            { title: 'Products', href: adminProducts(), icon: Package },
         );
     }
 

@@ -44,6 +44,14 @@ ranges are deleted and rebuilt per CVE.
 Steady state: 127 CVEs were modified in the last 24 hours, so hourly incremental
 runs finish in seconds and transfer almost nothing.
 
+Sync populates `vulnerabilities`/`vulnerability_ranges` regardless of what's in
+`products`. The entrypoint seeds a starter `products`/`vendors` catalog
+alongside `sources`, so a normal deploy matches something out of the box, but
+that catalog is small — most gaps show up as `unmatched` until covered from
+`/admin/products`. Adding a product after the fact needs `nvd:relink` to
+resolve CVEs already stored as unmatched; sync alone won't retry them. See
+[schema.md](schema.md#vendors-and-products) and [cli.md](cli.md).
+
 To measure on your own host, time a bounded slice:
 
 ```bash
@@ -255,7 +263,7 @@ docker compose exec db psql -U rozhanitsy -c "ALTER USER rozhanitsy WITH PASSWOR
 | Symptom | Cause | Action |
 | --- | --- | --- |
 | `/up` 200, `vulnerable` always empty | Sync never completed | Check `last_synced_at`, run `nvd:sync` manually |
-| Every component `unmatched` | `cpe_map` empty | Expected until products and mappings exist |
+| Every component `unmatched` | Product not in the starter catalog and not added since | Add it via `/admin/products`, then `nvd:relink` |
 | Sync exits 1 immediately | Source row missing or incomplete | `db:seed --class=SourceSeeder --force` |
 | Scanners get 401 | Token revoked, or host `is_active = false` | Regenerate in the UI or `scan-host:create --rotate` |
 | Scanners get 429 | 30 req/min per tenant | Batch per tenant, do not send per component |

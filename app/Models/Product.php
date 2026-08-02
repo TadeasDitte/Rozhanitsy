@@ -13,6 +13,11 @@ class Product extends Model
     /** @use HasFactory<ProductFactory> */
     use HasFactory;
 
+    /**
+     * @var list<string>
+     */
+    public const TYPES = ['core', 'plugin', 'theme', 'extension', 'package', 'library'];
+
     protected $fillable = [
         'vendor_id',
         'name',

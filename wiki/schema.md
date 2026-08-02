@@ -33,6 +33,30 @@ One row per upstream feed. `driver` names the code that parses it and is unique;
 endpoint, page size, request delays — is data on the row rather than constants
 in the command. A row with a null `driver` is recorded but not syncable.
 
+### Vendors and products
+
+`vendors` and `products` are a curated catalog, not a mirror of NVD's CPE
+dictionary. Nothing creates them from CVE data: no code path in ingest, no
+scheduled job, nothing triggered by a scan. They come from `VendorSeeder` /
+`ProductSeeder` (a small starter catalog, run by the Docker entrypoint on every
+start — see [deployment.md](deployment.md)) and from `/admin/products` (see
+[web.md](web.md#products)), and from nowhere else.
+
+This is deliberate, not an oversight to route around. A `Product` carries a
+`type` (`core`, `plugin`, `theme`, `extension`, `package`, `library`) that a
+raw CPE string does not encode, and NVD's CPE dictionary has an entry for
+essentially every piece of software ever assigned a CVE — auto-importing it
+would flood the catalog with entries no tenant will ever report. `NvdCpeResolver`
+only *links* CVEs to products that already exist; it has no path to invent one.
+
+The consequence: a product with no `Vendor`/`Product` row can never resolve,
+no matter how much CVE data is synced. `nvd:sync --full` will not fix it,
+`nvd:sync` running hourly will not fix it — the fuzzy matcher in
+[CPE resolution](#cpe-resolution) has nothing to score against. The starter
+catalog covers common software so a fresh install isn't matching against an
+empty table, but it is not exhaustive; anything outside it reports `unmatched`
+until added by hand.
+
 ### cpe_map
 
 Bridges NVD's CPE vendor/product naming to local products. Unique on
@@ -91,6 +115,12 @@ product similarity to cross it, so `elementor-pro` scores 0.891 against
 `elementor` and `wordpress-mu` scores 0.914 against `wordpress`. Both are
 distinct products with distinct CVE sets. Learned mappings are persisted and not
 re-evaluated, so a wrong match stays until deleted from `cpe_map` by hand.
+
+Resolution only runs from `nvd:sync`, on the CPE strings in whatever CVEs that
+run touches. Adding a product after a range was already stored as `unmatched`
+does not retry it — that range keeps `product_id = null` until something
+resolves it again. `nvd:relink` does that against `raw_cpe` already on disk, for
+every `unmatched` row at once, without re-hitting NVD. See [cli.md](cli.md).
 
 ## Matching
 

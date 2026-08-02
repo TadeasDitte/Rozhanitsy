@@ -66,6 +66,38 @@ php artisan nvd:unmatched --limit=20 --min-hits=10
 Showing 1 of 1 unmatched pairs.
 ```
 
+## nvd:relink
+
+```
+php artisan nvd:relink
+```
+
+Re-resolves `vulnerability_ranges` rows stuck at `match_confidence = unmatched`
+against the current `products` table, using each row's stored `raw_cpe`. Pure
+database work, no NVD request.
+
+Exists because `nvd:sync` only resolves a CPE at ingest time — a product added
+to the catalog afterwards does not retroactively fix ranges that were already
+stored as unmatched. Re-running `nvd:sync --full` would eventually fix them
+too, but re-downloads the entire catalogue to do it. `nvd:relink` reaches the
+same result against data already on disk, in seconds rather than the hour-plus
+`nvd:sync --full` takes (see [operations.md](operations.md)).
+
+Run it once after seeding or adding products, not on a schedule — it has
+nothing to do until the catalog changes.
+
+```bash
+php artisan nvd:relink
+```
+
+```
+Relinked 41823 vulnerability ranges.
+```
+
+A successful fuzzy match also writes the `cpe_map` row, exactly as `nvd:sync`
+would, so the live `/api/vulns/check` path benefits immediately without
+waiting on the next sync.
+
 ## scan-host:create
 
 ```
@@ -130,6 +162,23 @@ php artisan schedule:list
 php artisan sanctum:prune-expired --hours=24
 ```
 
-The Docker entrypoint runs migrations, the source seeder, and the config, route,
-view, and event caches on start-up. None of these need running by hand for a
-normal deployment.
+The Docker entrypoint runs migrations, the source seeder, `VendorSeeder`,
+`ProductSeeder`, and the config, route, view, and event caches on start-up.
+None of these need running by hand for a normal deployment — `SourceSeeder`,
+`VendorSeeder`, and `ProductSeeder` all use `firstOrCreate`/`updateOrCreate`,
+so re-running on every restart is safe and does not duplicate rows.
+
+`VendorSeeder`/`ProductSeeder` only cover a small starter catalog (see
+[deployment.md](deployment.md)). Growing it beyond that is manual, either
+through `/admin/products` or by hand:
+
+```bash
+php artisan db:seed --class=VendorSeeder --force
+php artisan db:seed --class=ProductSeeder --force
+php artisan nvd:relink
+```
+
+`nvd:relink` matters on an install that has already run `nvd:sync`: a product
+added after the fact does not retroactively resolve ranges already stored as
+`unmatched`. See schema.md's
+[Vendors and products](schema.md#vendors-and-products).

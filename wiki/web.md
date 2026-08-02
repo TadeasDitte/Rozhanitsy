@@ -17,6 +17,9 @@ Inertia and Vue 3. Sessions are database-backed.
 | POST | `/admin/users/{user}/admin` | administrator |
 | DELETE | `/admin/users/{user}/admin` | administrator |
 | DELETE | `/admin/scan-hosts/{scanHost}/token` | administrator |
+| GET | `/admin/products` | administrator |
+| POST | `/admin/products` | administrator |
+| DELETE | `/admin/products/{product}` | administrator |
 | GET | `/settings/profile` | authenticated |
 | GET | `/settings/security` | authenticated |
 
@@ -56,12 +59,14 @@ its scan history. A revoked host can be brought back with Regenerate.
 and active counts, scan count, components checked, vulnerable and unmatched
 totals, plus the ten most recent scans.
 
-`/admin` is system-wide: user and administrator counts, hosts, CVEs and matched
-ranges, 30 day scan volume, the last `nvd:sync` watermark, the ten most
-requested coverage gaps from `unmatched_lookups`, and recent scans across all
-hosts.
+`/admin` is system-wide: user and administrator counts, hosts, tracked vendor
+and product counts, CVEs and matched ranges, 30 day scan volume, the last
+`nvd:sync` watermark, the ten most requested coverage gaps from
+`unmatched_lookups`, and recent scans across all hosts.
 
-The coverage gap table is the same data as `nvd:unmatched`.
+The coverage gap table is the same data as `nvd:unmatched`. Each row links to
+`/admin/products` with the vendor and product pre-filled, so closing a gap is
+one click from the row that reported it.
 
 ## Administration
 
@@ -79,6 +84,26 @@ administrator access therefore requires deliberate action; if it happens anyway,
 
 Administrators can revoke any scan host's token, including hosts created via the
 CLI that belong to no account.
+
+### Products
+
+`/admin/products` lists tracked vendors with their products, and is the only
+way to grow the catalog beyond `VendorSeeder`/`ProductSeeder` without shelling
+in. See schema.md's [Vendors and products](schema.md#vendors-and-products) for
+why this table isn't populated automatically.
+
+Adding a product takes a vendor name, a product name, and a `type`
+(`core`/`plugin`/`theme`/`extension`/`package`/`library`). The vendor is
+matched by slug and reused if it already exists, so adding a second WordPress
+plugin does not create a second WordPress vendor. Duplicating an existing
+vendor/product pair is a validation error, not a silent no-op.
+
+Deleting a product cascades its `cpe_map` rows and nulls `product_id` on any
+`vulnerability_ranges` that pointed at it — those ranges fall back to
+unresolved rather than disappearing.
+
+Adding a product does not retroactively fix CVEs already stored as unmatched;
+run `php artisan nvd:relink` afterwards (see [cli.md](cli.md)).
 
 ## Theme
 

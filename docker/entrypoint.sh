@@ -37,6 +37,8 @@ wait_for_database
 if [ "$role" = "app" ]; then
     php artisan migrate --force --no-interaction
     php artisan db:seed --class=SourceSeeder --force --no-interaction
+    php artisan db:seed --class=VendorSeeder --force --no-interaction
+    php artisan db:seed --class=ProductSeeder --force --no-interaction
 fi
 
 php artisan config:cache

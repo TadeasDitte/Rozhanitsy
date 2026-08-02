@@ -16,8 +16,11 @@ queries over HTTP.
 ## Components
 
 - Laravel 13 / PHP 8.5, Postgres 17.
-- Inertia + Vue 3 web UI for account and token management.
+- Inertia + Vue 3 web UI for account, token, and admin management.
 - `nvd:sync` scheduled hourly; populates `vulnerabilities` and `vulnerability_ranges`.
+- `vendors`/`products` are a curated catalog, not derived from NVD. Seeded with a
+  starter set and extended via `/admin/products`; `nvd:sync` only links CVEs to
+  products that already exist, it never creates them.
 - `POST /api/vulns/check` authenticated with Sanctum bearer tokens bound to a scan host.
 
 ## Request flow

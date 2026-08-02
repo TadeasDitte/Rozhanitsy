@@ -5,7 +5,7 @@ import ScanTable from '@/components/panel/ScanTable.vue';
 import type { ScanRow } from '@/components/panel/ScanTable.vue';
 import StatCard from '@/components/panel/StatCard.vue';
 import { dashboard } from '@/routes';
-import { index as adminUsers } from '@/routes/admin/users';
+import { index as adminProducts } from '@/routes/admin/products';
 
 interface UnmatchedRow {
     id: number;
@@ -20,6 +20,8 @@ defineProps<{
         admins: number;
         hosts: number;
         activeHosts: number;
+        vendors: number;
+        products: number;
         vulnerabilities: number;
         resolvedRanges: number;
         unmatchedRanges: number;
@@ -80,7 +82,7 @@ defineOptions({
             />
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-3">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
                 label="Scans"
                 :value="scans.recent"
@@ -95,6 +97,11 @@ defineOptions({
                 label="Coverage gaps"
                 :value="stats.unmatchedLookups"
                 :hint="`${stats.unmatchedRanges} unmatched ranges`"
+            />
+            <StatCard
+                label="Products tracked"
+                :value="stats.products"
+                :hint="`${stats.vendors} vendors`"
             />
         </div>
 
@@ -117,10 +124,10 @@ defineOptions({
                     Most requested coverage gaps
                 </h2>
                 <Link
-                    :href="adminUsers()"
+                    :href="adminProducts()"
                     class="text-xs text-muted-foreground transition hover:text-foreground"
                 >
-                    Manage users →
+                    Manage products →
                 </Link>
             </div>
 
@@ -144,6 +151,9 @@ defineOptions({
                             <th class="px-5 py-3 text-right font-medium">
                                 Hits
                             </th>
+                            <th class="px-5 py-3 text-right font-medium">
+                                <span class="sr-only">Actions</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -160,6 +170,14 @@ defineOptions({
                             </td>
                             <td class="px-5 py-3 text-right font-medium">
                                 {{ row.hits }}
+                            </td>
+                            <td class="px-5 py-3 text-right">
+                                <Link
+                                    :href="`${adminProducts().url}?vendor=${encodeURIComponent(row.vendor)}&product=${encodeURIComponent(row.product)}`"
+                                    class="text-xs text-primary transition hover:underline"
+                                >
+                                    Add product
+                                </Link>
                             </td>
                         </tr>
                     </tbody>
