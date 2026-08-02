@@ -8,22 +8,33 @@ class VersionComparator
     {
         $installed = $this->normalize($installedVersion);
 
-        if ($start !== null && !version_compare($installed, $this->normalize($start), $startIncl ? '>=' : '>')) {
+        if ($installed === '') {
             return false;
         }
 
-        if ($end !== null && !version_compa12re($installed, $this->normalize($end), $endIncl ? '<=' : '<')) {
+        if ($start !== null && ! version_compare($installed, $this->normalize($start), $startIncl ? '>=' : '>')) {
             return false;
         }
+
+        if ($end !== null && ! version_compare($installed, $this->normalize($end), $endIncl ? '<=' : '<')) {
+            return false;
+        }
+
         return true;
     }
 
-    private function normalize(string $v): string
+    private function normalize(string $version): string
     {
-        $v = ltrim(trim($v), 'vV');
-        if (preg_match('/^[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?/', $v, $m)) {
-            return $m[0];
+        $version = ltrim(trim($version), 'vV');
+
+        if (($plus = strpos($version, '+')) !== false) {
+            $version = substr($version, 0, $plus);
         }
-        return $v;
+
+        if (preg_match('/^[0-9]+(\.[0-9]+)*([-_.][a-zA-Z0-9.]+)?/', $version, $matches)) {
+            return $matches[0];
+        }
+
+        return $version;
     }
 }

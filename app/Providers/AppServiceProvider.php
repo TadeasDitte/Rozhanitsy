@@ -3,8 +3,11 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,11 +27,23 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureRateLimiting();
     }
 
-    /**
-     * Configure default behaviors for production-ready applications.
-     */
+    protected function configureRateLimiting(): void
+    {
+
+        RateLimiter::for('vuln-check', function (Request $request): Limit {
+            $tenantId = $request->input('tenant_id');
+
+            $key = is_string($tenantId) && $tenantId !== ''
+                ? 'tenant:'.$tenantId
+                : 'ip:'.$request->ip();
+
+            return Limit::perMinute(30)->by($key);
+        });
+    }
+
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
