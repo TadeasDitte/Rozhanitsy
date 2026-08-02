@@ -17,29 +17,31 @@ class SyncNvdVulnerabilities extends Command
 
     protected $description = 'Pull CVE/CPE data from NVD and upsert into vulnerabilities + vulnerability_ranges';
 
-    private const PAGE_SIZE = 2000;
+    private const DRIVER = 'nvd';
 
-    private const THROTTLE_WITH_KEY_MICROSECONDS = 600_000;
-
-    private const THROTTLE_WITHOUT_KEY_MICROSECONDS = 6_000_000;
+    private const RETRY_BACKOFF_MILLISECONDS = [2_000, 5_000];
 
     public function handle(NvdCpeResolver $resolver): int
     {
-        $source = Source::where('slug', 'nvd')->first();
+        $source = Source::where('driver', self::DRIVER)->first();
 
         if ($source === null) {
-            $this->error('No "nvd" source row found. Run: php artisan db:seed --class=SourceSeeder');
+            $this->error('No source row with driver "'.self::DRIVER.'". Run: php artisan db:seed --class=SourceSeeder');
 
             return self::FAILURE;
         }
 
-        $endpoint = $source->url;
+        $missing = collect(['url', 'page_size', 'request_delay_ms', 'unauthenticated_request_delay_ms'])
+            ->filter(fn (string $column): bool => blank($source->{$column}));
 
-        if (! is_string($endpoint) || $endpoint === '') {
-            $this->error('The "nvd" source row has no url. Set sources.url to the NVD 2.0 API endpoint.');
+        if ($missing->isNotEmpty()) {
+            $this->error('Source "'.$source->slug.'" is missing: '.$missing->implode(', ').'.');
 
             return self::FAILURE;
         }
+
+        $endpoint = (string) $source->url;
+        $pageSize = (int) $source->page_size;
 
         $state = SyncState::firstOrCreate(['source_id' => $source->id]);
         $since = $this->option('full') ? null : $state->last_synced_at;
@@ -50,9 +52,13 @@ class SyncNvdVulnerabilities extends Command
         $totalResults = null;
         $apiKey = config('services.nvd.api_key');
 
+        $delayMilliseconds = (int) ($apiKey
+            ? $source->request_delay_ms
+            : $source->unauthenticated_request_delay_ms);
+
         do {
             $params = [
-                'resultsPerPage' => self::PAGE_SIZE,
+                'resultsPerPage' => $pageSize,
                 'startIndex' => $startIndex,
             ];
 
@@ -62,14 +68,13 @@ class SyncNvdVulnerabilities extends Command
             }
 
             $response = Http::withHeaders(array_filter(['apiKey' => $apiKey]))
-                ->retry(3, 5000, throw: false)
+                ->retry(self::RETRY_BACKOFF_MILLISECONDS, throw: false)
+                ->connectTimeout(10)
                 ->timeout(120)
-                ->get(self::NVD_ENDPOINT, $params);
+                ->get($endpoint, $params);
 
             if ($response->failed()) {
                 $this->error("NVD request failed at index {$startIndex}: {$response->status()}");
-
-                $state->update(['last_index' => $startIndex]);
 
                 return self::FAILURE;
             }
@@ -79,20 +84,38 @@ class SyncNvdVulnerabilities extends Command
             $page = $data['vulnerabilities'] ?? [];
 
             foreach ($page as $entry) {
-                $this->processCve($entry['cve'], $source, $resolver);
+                $cve = $entry['cve'] ?? null;
+
+                if (! is_array($cve) || ! is_string($cve['id'] ?? null)) {
+                    $this->warn("Skipping malformed CVE entry near index {$startIndex}.");
+
+                    continue;
+                }
+
+                $this->processCve($cve, $source, $resolver);
             }
 
-            $startIndex += self::PAGE_SIZE;
-            $this->info('Processed '.min($startIndex, $totalResults)." / {$totalResults}");
+            $received = count($page);
 
-            $state->update(['last_index' => $startIndex]);
+            if ($received === 0) {
+                if ($startIndex < $totalResults) {
+                    $this->error("NVD returned an empty page at index {$startIndex} of {$totalResults}.");
+
+                    return self::FAILURE;
+                }
+
+                break;
+            }
+
+            $startIndex += $received;
+            $this->info("Processed {$startIndex} / {$totalResults}");
 
             if ($startIndex < $totalResults) {
-                usleep($apiKey ? self::THROTTLE_WITH_KEY_MICROSECONDS : self::THROTTLE_WITHOUT_KEY_MICROSECONDS);
+                usleep($delayMilliseconds * 1000);
             }
         } while ($startIndex < $totalResults);
 
-        $state->update(['last_synced_at' => $runStartedAt, 'last_index' => null]);
+        $state->update(['last_synced_at' => $runStartedAt]);
 
         $this->info("NVD sync complete ({$totalResults} CVEs).");
 
@@ -149,16 +172,43 @@ class SyncNvdVulnerabilities extends Command
 
         $resolved = $resolver->resolve($criteria);
 
+        $versionStart = $match['versionStartIncluding'] ?? $match['versionStartExcluding'] ?? null;
+        $versionEnd = $match['versionEndIncluding'] ?? $match['versionEndExcluding'] ?? null;
+        $startIncl = isset($match['versionStartIncluding']);
+        $endIncl = isset($match['versionEndIncluding']);
+
+        if ($versionStart === null && $versionEnd === null) {
+            $exactVersion = $this->exactVersionFrom($criteria);
+
+            if ($exactVersion !== null) {
+                $versionStart = $exactVersion;
+                $versionEnd = $exactVersion;
+                $startIncl = true;
+                $endIncl = true;
+            }
+        }
+
         VulnerabilityRange::create([
             'vulnerability_id' => $vulnerability->id,
             'product_id' => $resolved['product_id'],
             'match_confidence' => $resolved['confidence'],
-            'version_start' => $match['versionStartIncluding'] ?? $match['versionStartExcluding'] ?? null,
-            'version_start_incl' => isset($match['versionStartIncluding']),
-            'version_end' => $match['versionEndIncluding'] ?? $match['versionEndExcluding'] ?? null,
-            'version_end_incl' => isset($match['versionEndIncluding']),
+            'version_start' => $versionStart,
+            'version_start_incl' => $startIncl,
+            'version_end' => $versionEnd,
+            'version_end_incl' => $endIncl,
             'raw_cpe' => $criteria,
         ]);
+    }
+
+    private function exactVersionFrom(string $criteria): ?string
+    {
+        $version = explode(':', $criteria)[5] ?? null;
+
+        if (! is_string($version) || $version === '' || $version === '*' || $version === '-') {
+            return null;
+        }
+
+        return $version;
     }
 
     /**

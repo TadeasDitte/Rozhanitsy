@@ -9,6 +9,7 @@ queries over HTTP.
 | [api.md](api.md) | Scanner API: auth, request, response, errors, rate limits |
 | [cli.md](cli.md) | Artisan commands |
 | [deployment.md](deployment.md) | Docker, environment variables, reverse proxy |
+| [operations.md](operations.md) | Sync timings, disk, backups, migrations, monitoring |
 | [schema.md](schema.md) | Tables, matching pipeline, CPE resolution |
 | [web.md](web.md) | Web UI, accounts, admin |
 
