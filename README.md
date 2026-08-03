@@ -7,7 +7,16 @@ queries over HTTP.
 
 ## Documentation
 
-Read more on the github [wiki](https://github.com/TadeasDitte/Rozhanitsy/wiki) for this repo
+| Document | Contents |
+| --- | --- |
+| [wiki/api.md](wiki/api.md) | Scanner API: auth, request, response, errors, rate limits |
+| [wiki/cli.md](wiki/cli.md) | Artisan commands |
+| [wiki/deployment.md](wiki/deployment.md) | Docker, environment variables, reverse proxy |
+| [wiki/operations.md](wiki/operations.md) | Sync timings, disk, backups, migrations, monitoring |
+| [wiki/schema.md](wiki/schema.md) | Tables, matching pipeline, CPE resolution |
+| [wiki/web.md](wiki/web.md) | Web UI, accounts, admin |
+
+Or the github wiki
 
 ## Components
 
