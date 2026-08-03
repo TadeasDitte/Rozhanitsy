@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ShieldAlert, TerminalSquare, Waypoints } from '@lucide/vue';
-import { dashboard, login, register, privacyPolicy, termsOfService } from '@/routes';
+import {
+    dashboard,
+    login,
+    register,
+    privacyPolicy,
+    termsOfService,
+} from '@/routes';
 
 const features = [
     {
@@ -62,7 +68,6 @@ const features = [
 
         <main class="mx-auto w-full max-w-5xl px-6">
             <section class="border-b border-border py-20 md:py-28">
-
                 <h1
                     class="max-w-3xl text-4xl leading-[1.1] font-semibold tracking-tight text-balance md:text-6xl"
                 >
@@ -135,13 +140,19 @@ const features = [
             </section>
         </main>
 
-    <footer class="border-t border-border px-6 py-4 text-xs text-muted-foreground bg-background flex justify-between align-center">
-      <p>
-        Made with sleep deprivation - 🄯2026 - 🄯2026
-      </p>
-      <p>
-        <Link :href="privacyPolicy()" class="hover:underline">Privacy Policy</Link> | <Link :href="termsOfService()" class="hover:underline">Terms of Service</Link>
-      </p>
-    </footer>
+        <footer
+            class="align-center flex justify-between border-t border-border bg-background px-6 py-4 text-xs text-muted-foreground"
+        >
+            <p>Made with sleep deprivation - 🄯2026 - 🄯2026</p>
+            <p>
+                <Link :href="privacyPolicy()" class="hover:underline"
+                    >Privacy Policy</Link
+                >
+                |
+                <Link :href="termsOfService()" class="hover:underline"
+                    >Terms of Service</Link
+                >
+            </p>
+        </footer>
     </div>
 </template>

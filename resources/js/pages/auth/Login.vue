@@ -39,12 +39,19 @@ defineProps<{
 
     <PasskeyVerify />
 
-    <Button as="a" :href="authentik.redirect().url" variant="outline" class="w-full">
+    <Button
+        as="a"
+        :href="authentik.redirect().url"
+        variant="outline"
+        class="w-full"
+    >
         Sign in with Authentik
     </Button>
 
     <div class="relative my-6 text-center text-sm">
-        <span class="relative z-10 bg-background px-2 text-muted-foreground">Or continue with</span>
+        <span class="relative z-10 bg-background px-2 text-muted-foreground"
+            >Or continue with</span
+        >
         <div class="absolute inset-0 top-1/2 border-t border-border" />
     </div>
 
