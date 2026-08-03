@@ -29,4 +29,5 @@ Route::middleware(['auth', 'verified', 'can:admin'])->prefix('admin')->name('adm
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 });
 
+require __DIR__.'/auth.php';
 require __DIR__.'/settings.php';
