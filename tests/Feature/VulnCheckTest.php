@@ -447,6 +447,41 @@ test('a single-clause cve still matches exactly like before the AND-group change
         ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-7001');
 });
 
+/**
+ * CVE-2012-3414's real NVD data: a bounded WordPress range (<=3.3.1, doesn't
+ * match 6.9) sits alongside a redundant `-`-version WordPress entry in the
+ * same flat OR node. CPE version `-` means "not applicable" — it's never
+ * itself a claim that this product/version is vulnerable, so it must not be
+ * used to attribute a finding when nothing else in the group matched.
+ */
+test('a bare "-" version cpe is never attributed on its own', function () {
+    $product = mapCpe();
+
+    VulnerabilityRange::factory()->for(Vulnerability::factory()->state(['cve_id' => 'CVE-2012-3414']))
+        ->affecting(null, null)
+        ->create(['product_id' => $product->id, 'raw_cpe' => 'cpe:2.3:a:acme:widget:-:*:*:*:*:*:*:*']);
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '6.9.0']],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+});
+
+/** A genuine `*` wildcard with no structured bounds is NVD's formal "any version" reading — still reported, unlike the `-` marker above. */
+test('a bare wildcard version cpe with no bounds is still reported', function () {
+    $product = mapCpe();
+
+    VulnerabilityRange::factory()->for(Vulnerability::factory()->state(['cve_id' => 'CVE-2007-2627']))
+        ->affecting(null, null)
+        ->create(['product_id' => $product->id, 'raw_cpe' => 'cpe:2.3:a:acme:widget:*:*:*:*:*:*:*:*']);
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '6.9.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2007-2627');
+});
+
 test('a deactivated scan host cannot authenticate', function () {
     $host = ScanHost::factory()->inactive()->create();
 

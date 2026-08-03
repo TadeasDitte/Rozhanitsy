@@ -97,12 +97,16 @@ class VulnCheckController extends Controller
      * both indexes are plain OR alternatives, which is the whole of what
      * every CVE looked like before `clause_index` existed.
      *
-     * Attribution prefers components that satisfied a *bounded* clause (a
-     * real version range) over ones that only satisfied an unbounded
-     * "platform present, any version" clause — the latter is how NVD encodes
-     * "plugin X requires WordPress installed", not "WordPress itself is
-     * vulnerable". Falls back to every satisfying component only when a
-     * satisfied group has no bounded clause at all.
+     * Attribution ranks matches in three tiers: `bounded` (a real version
+     * range) beats `unbounded` (a bare `*` wildcard with no range at all —
+     * ambiguous NVD data, could genuinely mean "every version") beats
+     * `platform` (CPE version field literally `-`, CPE 2.3's "not
+     * applicable" marker — almost always a co-requirement like "plugin X
+     * requires WordPress installed", never itself a claim that the platform
+     * is the vulnerable thing). Reports the highest tier present; if only
+     * `platform`-tier matches exist, reports nothing for that group rather
+     * than attributing a vulnerability to a component NVD never actually
+     * named as vulnerable.
      *
      * @param  array<int, array<int, ScannedComponent>>  $componentsByProduct
      * @return list<array<string, mixed>>
@@ -134,6 +138,7 @@ class VulnCheckController extends Controller
                 "{$rangeTable}.version_start_incl",
                 "{$rangeTable}.version_end",
                 "{$rangeTable}.version_end_incl",
+                "{$rangeTable}.raw_cpe",
                 "{$vulnerabilityTable}.cve_id",
                 "{$vulnerabilityTable}.cvss_score",
                 "{$vulnerabilityTable}.cvss_vector",
@@ -171,7 +176,7 @@ class VulnCheckController extends Controller
                             $clauseMatches[] = [
                                 'index' => $componentIndex,
                                 'component' => $component,
-                                'bounded' => $range->version_start !== null || $range->version_end !== null,
+                                'tier' => $this->attributionTier($range),
                             ];
                         }
                     }
@@ -190,8 +195,11 @@ class VulnCheckController extends Controller
                 }
 
                 $allMatches = collect($matchesByClause)->flatten(1);
-                $bounded = $allMatches->where('bounded', true);
-                $attribution = $bounded->isNotEmpty() ? $bounded : $allMatches;
+                $attribution = $allMatches->where('tier', 'bounded');
+
+                if ($attribution->isEmpty()) {
+                    $attribution = $allMatches->where('tier', 'unbounded');
+                }
 
                 foreach ($attribution as $match) {
                     $seenKey = $match['index'].'|'.$cveId;
@@ -219,6 +227,17 @@ class VulnCheckController extends Controller
         }
 
         return $vulnerable;
+    }
+
+    private function attributionTier(\stdClass $range): string
+    {
+        if ($range->version_start !== null || $range->version_end !== null) {
+            return 'bounded';
+        }
+
+        $versionField = is_string($range->raw_cpe) ? (explode(':', $range->raw_cpe)[5] ?? null) : null;
+
+        return $versionField === '-' ? 'platform' : 'unbounded';
     }
 
     /**
