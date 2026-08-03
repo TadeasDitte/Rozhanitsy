@@ -33,7 +33,7 @@ class VulnCheckController extends Controller
             ->get(['cpe_vendor', 'cpe_product', 'product_id'])
             ->keyBy(fn (CpeMap $row): string => Str::lower($row->cpe_vendor).'|'.Str::lower($row->cpe_product));
 
-        /** @var list<array{vendor: string, product: string, local_id: string|null}> $unmatched */
+        /** @var list<array{vendor: string, product: string, version: string, local_id: string|null}> $unmatched */
         $unmatched = [];
 
         /** @var array<string, array{0: string, 1: string}> $unmatchedPairs */
@@ -52,6 +52,7 @@ class VulnCheckController extends Controller
                 $unmatched[] = [
                     'vendor' => $component['vendor'],
                     'product' => $component['product'],
+                    'version' => $component['version'],
                     'local_id' => $component['local_id'] ?? null,
                 ];
 

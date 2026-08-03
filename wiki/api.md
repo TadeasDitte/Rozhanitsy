@@ -108,6 +108,7 @@ spec, and both sides are folded before lookup.
     {
       "vendor": "acme",
       "product": "widget",
+      "version": "1.2.0",
       "local_id": "plugins/widget"
     }
   ],
@@ -143,10 +144,12 @@ manual look rather than an automatic finding. A third internal tier,
 instead of reported.
 
 `unmatched` lists components with no `cpe_map` entry. It is not an error — it
-means no mapping exists yet. Vendor and product are echoed with the caller's
-original casing. Each distinct pair is also recorded in `unmatched_lookups` with
-an incrementing hit count, which is the coverage worklist surfaced by
-`nvd:unmatched` and on the admin dashboard.
+means no mapping exists yet. Vendor, product, and version are echoed as sent —
+vendor/product keep the caller's original casing. Only the vendor/product pair
+is recorded in `unmatched_lookups` (version is not, since the table tracks
+distinct pairs with an incrementing hit count rather than individual
+installs), which is the coverage worklist surfaced by `nvd:unmatched` and on
+the admin dashboard.
 
 A component that resolves to a product with no matching CVE range appears in
 neither array.

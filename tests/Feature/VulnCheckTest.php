@@ -127,7 +127,7 @@ test('tenant_id is echoed back as null for standalone installs', function () {
         ->assertJsonPath('tenant_id', null);
 });
 
-test('unresolvable components are returned as unmatched with their local_id', function () {
+test('unresolvable components are returned as unmatched with their version and local_id', function () {
     postCheck([
         'components' => [
             ['vendor' => 'unknown', 'product' => 'mystery', 'version' => '3.1.0', 'local_id' => 'plugins/mystery'],
@@ -138,6 +138,7 @@ test('unresolvable components are returned as unmatched with their local_id', fu
         ->assertJsonCount(1, 'unmatched')
         ->assertJsonPath('unmatched.0.vendor', 'unknown')
         ->assertJsonPath('unmatched.0.product', 'mystery')
+        ->assertJsonPath('unmatched.0.version', '3.1.0')
         ->assertJsonPath('unmatched.0.local_id', 'plugins/mystery');
 });
 
