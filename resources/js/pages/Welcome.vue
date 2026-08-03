@@ -23,7 +23,7 @@ const features = [
 </script>
 
 <template>
-    <Head title="Vulnerability intelligence for your stack" />
+    <Head title="Welcome" />
 
     <div class="min-h-screen bg-background text-foreground">
         <header
