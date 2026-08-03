@@ -4,7 +4,7 @@ x-app: &app
   build:
     context: .
     dockerfile: Dockerfile
-  image: rozhanitsy-app
+  image: ghcr.io/tadeasditte/rozhanitsy:${IMAGE_TAG:-main}
   restart: unless-stopped
   volumes:
     - storage:/app/storage
