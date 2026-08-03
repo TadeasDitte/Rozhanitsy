@@ -71,7 +71,11 @@ function submit() {
 }
 
 function remove(product: ProductRow) {
-    if (confirm(`Remove ${product.name}? This also drops any CVE matches for it.`)) {
+    if (
+        confirm(
+            `Remove ${product.name}? This also drops any CVE matches for it.`,
+        )
+    ) {
         router.delete(destroy(product.id).url, { preserveScroll: true });
     }
 }
@@ -117,14 +121,20 @@ function remove(product: ProductRow) {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem v-for="type in types" :key="type" :value="type">
+                        <SelectItem
+                            v-for="type in types"
+                            :key="type"
+                            :value="type"
+                        >
                             {{ type }}
                         </SelectItem>
                     </SelectContent>
                 </Select>
                 <InputError :message="form.errors.type" />
             </div>
-            <Button type="submit" :disabled="form.processing">Add product</Button>
+            <Button type="submit" :disabled="form.processing"
+                >Add product</Button
+            >
         </form>
 
         <div class="space-y-4">
@@ -159,7 +169,9 @@ function remove(product: ProductRow) {
                     >
                         <div>
                             <p class="text-sm">{{ product.name }}</p>
-                            <p class="text-xs text-muted-foreground">{{ product.type }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ product.type }}
+                            </p>
                         </div>
 
                         <Button
