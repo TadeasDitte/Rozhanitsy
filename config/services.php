@@ -39,4 +39,11 @@ return [
         'api_key' => env('NVD_API_KEY'),
     ],
 
+    'authentik' => [
+        'base_url' => env('AUTHENTIK_BASE_URL'),
+        'client_id' => env('AUTHENTIK_CLIENT_ID'),
+        'client_secret' => env('AUTHENTIK_CLIENT_SECRET'),
+        'redirect' => env('AUTHENTIK_REDIRECT_URI'),
+    ],
+
 ];
