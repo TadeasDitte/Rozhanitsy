@@ -36,6 +36,8 @@ Failure modes:
 ```json
 {
   "tenant_id": "p1234",
+  "min_cvss_score": 7,
+  "severity": ["high", "critical"],
   "components": [
     {
       "vendor": "automattic",
@@ -50,6 +52,8 @@ Failure modes:
 | Field | Rules |
 | --- | --- |
 | `tenant_id` | nullable, string, max 64 |
+| `min_cvss_score` | nullable, numeric, 0–10 |
+| `severity` | nullable, array of `low`\|`medium`\|`high`\|`critical` (case-insensitive) |
 | `components` | required, array, 1–2000 entries |
 | `components[].vendor` | required, string, max 191 |
 | `components[].product` | required, string, max 191 |
@@ -59,6 +63,13 @@ Failure modes:
 `tenant_id` identifies a tenant directory on a hosting panel. It is free-form —
 there is no `pXXXX` format requirement — and omitting it is the correct
 behaviour for a standalone install.
+
+`min_cvss_score` and `severity` filter the `vulnerable` array before it's
+returned; they never affect `unmatched`. Both apply to the CVE as a whole, not
+to an individual match, and combine as an AND when both are given. A CVE with
+no CVSS score at all (common for pre-2015 NVD entries) never satisfies either
+filter and is excluded whenever one is active — it's a known-severity filter,
+not an "assume the worst" one.
 
 `local_id` is opaque passthrough. The server never reads or matches on it; it is
 echoed back on every result so the caller can correlate findings with its own
@@ -176,6 +187,19 @@ curl -X POST https://rozhanitsy.example.com/api/vulns/check \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   -d '{"components":[{"vendor":"nginx","product":"nginx","version":"1.24.0"}]}'
+```
+
+Only critical and high severity findings:
+
+```bash
+curl -X POST https://rozhanitsy.example.com/api/vulns/check \
+  -H "Authorization: Bearer $SCAN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -d '{
+    "severity": ["high", "critical"],
+    "components": [{ "vendor": "nginx", "product": "nginx", "version": "1.24.0" }]
+  }'
 ```
 
 Validation error:

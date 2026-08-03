@@ -82,3 +82,45 @@ test('an over-long tenant_id is rejected', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('tenant_id');
 });
+
+test('min_cvss_score is optional', function () {
+    postRaw(['components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']]])
+        ->assertOk();
+});
+
+test('min_cvss_score must be within the 0-10 cvss range', function (float $score) {
+    postRaw([
+        'min_cvss_score' => $score,
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('min_cvss_score');
+})->with([-1, 10.1]);
+
+test('min_cvss_score accepts the full 0-10 range', function (float $score) {
+    postRaw([
+        'min_cvss_score' => $score,
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])->assertOk();
+})->with([0, 10]);
+
+test('severity is optional', function () {
+    postRaw(['components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']]])
+        ->assertOk();
+});
+
+test('severity accepts every known level case-insensitively', function (string $severity) {
+    postRaw([
+        'severity' => [$severity],
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])->assertOk();
+})->with(['low', 'Medium', 'HIGH', 'critical']);
+
+test('an unknown severity level is rejected', function () {
+    postRaw([
+        'severity' => ['apocalyptic'],
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('severity.0');
+});

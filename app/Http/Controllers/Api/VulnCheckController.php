@@ -65,7 +65,7 @@ class VulnCheckController extends Controller
 
         $vulnerable = $componentsByProduct === []
             ? []
-            : $this->matchRanges($componentsByProduct, $comparator);
+            : $this->matchRanges($componentsByProduct, $comparator, $request->minCvssScore(), $request->severities());
 
         if ($unmatchedPairs !== []) {
             $this->recordUnmatched(array_values($unmatchedPairs));
@@ -110,10 +110,19 @@ class VulnCheckController extends Controller
      * as `confidence` (`platform` never appears there, since it's never
      * attributed) — see api.md.
      *
+     * `minCvssScore` and `severities` filter on the vulnerability as a whole
+     * (both columns live on `vulnerabilities`, one row per CVE) rather than
+     * per-range, so applying them to the outer query before grouping is
+     * equivalent to filtering the final results and cheaper. A CVE with a
+     * `null` `cvss_score`/`cvss_severity` never satisfies either filter when
+     * active — an unscored CVE can't be proven to meet a threshold, so it's
+     * excluded rather than assumed to pass.
+     *
      * @param  array<int, array<int, ScannedComponent>>  $componentsByProduct
+     * @param  list<string>  $severities
      * @return list<array<string, mixed>>
      */
-    private function matchRanges(array $componentsByProduct, VersionComparator $comparator): array
+    private function matchRanges(array $componentsByProduct, VersionComparator $comparator, ?float $minCvssScore = null, array $severities = []): array
     {
         $rangeTable = (new VulnerabilityRange)->getTable();
         $vulnerabilityTable = (new Vulnerability)->getTable();
@@ -131,6 +140,8 @@ class VulnCheckController extends Controller
                     ->whereIn('product_id', $productIds)
                     ->where('match_confidence', '!=', VulnerabilityRange::MATCH_UNMATCHED);
             })
+            ->when($minCvssScore !== null, fn ($query) => $query->where("{$vulnerabilityTable}.cvss_score", '>=', $minCvssScore))
+            ->when($severities !== [], fn ($query) => $query->whereIn("{$vulnerabilityTable}.cvss_severity", $severities))
             ->get([
                 "{$rangeTable}.vulnerability_id",
                 "{$rangeTable}.product_id",

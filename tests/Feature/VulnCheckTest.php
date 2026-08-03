@@ -485,6 +485,76 @@ test('a bare wildcard version cpe with no bounds is still reported', function ()
         ->assertJsonPath('vulnerable.0.confidence', 'unbounded');
 });
 
+test('min_cvss_score excludes vulnerabilities below the threshold', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0001', 'cvss_score' => 4.5, 'cvss_severity' => 'MEDIUM']);
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0002', 'cvss_score' => 9.8, 'cvss_severity' => 'CRITICAL']);
+
+    postCheck([
+        'min_cvss_score' => 7,
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-0002');
+});
+
+test('min_cvss_score excludes vulnerabilities with no cvss score at all', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0003', 'cvss_score' => null, 'cvss_severity' => null]);
+
+    postCheck([
+        'min_cvss_score' => 0,
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonPath('vulnerable', []);
+});
+
+test('severity filters to only the requested levels', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0004', 'cvss_score' => 4.5, 'cvss_severity' => 'MEDIUM']);
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0005', 'cvss_score' => 9.8, 'cvss_severity' => 'CRITICAL']);
+
+    postCheck([
+        'severity' => ['critical'],
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-0005');
+});
+
+test('severity accepts multiple levels combined as an OR', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0006', 'cvss_score' => 2.0, 'cvss_severity' => 'LOW']);
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0007', 'cvss_score' => 7.5, 'cvss_severity' => 'HIGH']);
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0008', 'cvss_score' => 9.8, 'cvss_severity' => 'CRITICAL']);
+
+    $response = postCheck([
+        'severity' => ['HIGH', 'CRITICAL'],
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonCount(2, 'vulnerable');
+
+    expect(collect($response->json('vulnerable'))->pluck('cve_id')->sort()->values()->all())
+        ->toBe(['CVE-2026-0007', 'CVE-2026-0008']);
+});
+
+test('min_cvss_score and severity combine as an AND', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0009', 'cvss_score' => 7.1, 'cvss_severity' => 'HIGH']);
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0010', 'cvss_score' => 9.8, 'cvss_severity' => 'CRITICAL']);
+
+    postCheck([
+        'min_cvss_score' => 9.0,
+        'severity' => ['high', 'critical'],
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-0010');
+});
+
 test('a deactivated scan host cannot authenticate', function () {
     $host = ScanHost::factory()->inactive()->create();
 
