@@ -81,7 +81,8 @@ spec, and both sides are folded before lookup.
       "cve_id": "CVE-2026-0001",
       "cvss_score": 9.8,
       "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
-      "cvss_severity": "CRITICAL"
+      "cvss_severity": "CRITICAL",
+      "confidence": "bounded"
     }
   ],
   "unmatched": [
@@ -110,6 +111,17 @@ group is more than a platform requirement, nothing is reported for it — a
 component is never named as vulnerable on the strength of a CPE entry that
 NVD itself marked "not applicable". See schema.md's
 [Matching](schema.md#matching).
+
+`confidence` is `bounded` (the CVE's CPE entry names a real version range) or
+`unbounded` (no version range at all — NVD's CPE data doesn't scope which
+versions are affected, so this is reported against every installed version of
+the product as a precaution). `unbounded` skews toward CVEs older than NVD's
+structured version-range fields (roughly pre-2015) where the real fix version,
+if any, only exists in the free-text description — treat these as worth a
+manual look rather than an automatic finding. A third internal tier,
+`platform`, is never returned here; see schema.md's
+[Matching](schema.md#matching) for what it means and why it's suppressed
+instead of reported.
 
 `unmatched` lists components with no `cpe_map` entry. It is not an error — it
 means no mapping exists yet. Vendor and product are echoed with the caller's

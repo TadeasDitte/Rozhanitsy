@@ -99,7 +99,8 @@ test('an affected component is reported as vulnerable', function () {
         ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-0001')
         ->assertJsonPath('vulnerable.0.cvss_score', 9.8)
         ->assertJsonPath('vulnerable.0.installed_version', '1.5.0')
-        ->assertJsonPath('vulnerable.0.local_id', 'wp-content/plugins/widget');
+        ->assertJsonPath('vulnerable.0.local_id', 'wp-content/plugins/widget')
+        ->assertJsonPath('vulnerable.0.confidence', 'bounded');
 
     expect($response->json('checked_at'))->not->toBeNull();
 });
@@ -408,7 +409,8 @@ test('an AND-group CVE applies once every clause is satisfied, attributed to the
         ->assertOk()
         ->assertJsonCount(1, 'vulnerable')
         ->assertJsonPath('vulnerable.0.product', 'advanced_dewplayer')
-        ->assertJsonPath('vulnerable.0.local_id', 'plugins/dewplayer');
+        ->assertJsonPath('vulnerable.0.local_id', 'plugins/dewplayer')
+        ->assertJsonPath('vulnerable.0.confidence', 'bounded');
 });
 
 /** A clause whose product was never scanned at all can never be satisfied. */
@@ -479,7 +481,8 @@ test('a bare wildcard version cpe with no bounds is still reported', function ()
     ])
         ->assertOk()
         ->assertJsonCount(1, 'vulnerable')
-        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2007-2627');
+        ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2007-2627')
+        ->assertJsonPath('vulnerable.0.confidence', 'unbounded');
 });
 
 test('a deactivated scan host cannot authenticate', function () {

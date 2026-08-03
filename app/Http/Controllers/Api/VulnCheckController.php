@@ -106,7 +106,9 @@ class VulnCheckController extends Controller
      * is the vulnerable thing). Reports the highest tier present; if only
      * `platform`-tier matches exist, reports nothing for that group rather
      * than attributing a vulnerability to a component NVD never actually
-     * named as vulnerable.
+     * named as vulnerable. The winning tier is echoed on the response entry
+     * as `confidence` (`platform` never appears there, since it's never
+     * attributed) — see api.md.
      *
      * @param  array<int, array<int, ScannedComponent>>  $componentsByProduct
      * @return list<array<string, mixed>>
@@ -221,6 +223,7 @@ class VulnCheckController extends Controller
                         'cvss_score' => $cveMeta->cvss_score !== null ? (float) $cveMeta->cvss_score : null,
                         'cvss_vector' => $cveMeta->cvss_vector,
                         'cvss_severity' => $cveMeta->cvss_severity,
+                        'confidence' => $match['tier'],
                     ];
                 }
             }
