@@ -8,6 +8,8 @@ use App\Http\Controllers\ScanTokenController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
+Route::inertia('/privacy-policy', 'PrivacyPolicy')->name('privacy-policy');
+Route::inertia('/terms-of-service', 'TermsOfService')->name('terms-of-service');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');

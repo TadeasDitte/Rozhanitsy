@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ShieldAlert, TerminalSquare, Waypoints } from '@lucide/vue';
-import { dashboard, login, register } from '@/routes';
+import { dashboard, login, register, privacyPolicy, termsOfService } from '@/routes';
 
 const features = [
     {
@@ -62,12 +62,6 @@ const features = [
 
         <main class="mx-auto w-full max-w-5xl px-6">
             <section class="border-b border-border py-20 md:py-28">
-                <p
-                    class="mb-5 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs tracking-wide text-muted-foreground uppercase"
-                >
-                    <span class="h-1.5 w-1.5 rounded-full bg-primary" />
-                    Vulnerability intelligence API
-                </p>
 
                 <h1
                     class="max-w-3xl text-4xl leading-[1.1] font-semibold tracking-tight text-balance md:text-6xl"
@@ -141,10 +135,13 @@ const features = [
             </section>
         </main>
 
-        <footer
-            class="mx-auto w-full max-w-5xl border-t border-border px-6 py-8 text-sm text-muted-foreground"
-        >
-            Rozhanitsy
-        </footer>
+    <footer class="border-t border-border px-6 py-4 text-xs text-muted-foreground bg-background flex justify-between align-center">
+      <p>
+        Made with sleep deprivation - 🄯2026 - 🄯2026
+      </p>
+      <p>
+        <Link :href="privacyPolicy()" class="hover:underline">Privacy Policy</Link> | <Link :href="termsOfService()" class="hover:underline">Terms of Service</Link>
+      </p>
+    </footer>
     </div>
 </template>
