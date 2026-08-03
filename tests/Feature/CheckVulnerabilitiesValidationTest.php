@@ -124,3 +124,24 @@ test('an unknown severity level is rejected', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('severity.0');
 });
+
+test('confidence is optional', function () {
+    postRaw(['components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']]])
+        ->assertOk();
+});
+
+test('confidence accepts bounded and all case-insensitively', function (string $confidence) {
+    postRaw([
+        'confidence' => $confidence,
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])->assertOk();
+})->with(['bounded', 'BOUNDED', 'all', 'All']);
+
+test('an unknown confidence value is rejected', function () {
+    postRaw([
+        'confidence' => 'unbounded',
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('confidence');
+});

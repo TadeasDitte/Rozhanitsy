@@ -27,6 +27,10 @@ class CheckVulnerabilitiesRequest extends FormRequest
                 ),
             ]);
         }
+
+        if (is_string($this->input('confidence'))) {
+            $this->merge(['confidence' => Str::lower($this->input('confidence'))]);
+        }
     }
 
     /**
@@ -49,6 +53,8 @@ class CheckVulnerabilitiesRequest extends FormRequest
 
             'severity' => ['nullable', 'array'],
             'severity.*' => ['string', Rule::in(Vulnerability::SEVERITIES)],
+
+            'confidence' => ['nullable', 'string', Rule::in(['bounded', 'all'])],
         ];
     }
 
@@ -86,5 +92,10 @@ class CheckVulnerabilitiesRequest extends FormRequest
         $severities = $this->validated('severity');
 
         return $severities ?? [];
+    }
+
+    public function onlyBoundedConfidence(): bool
+    {
+        return $this->validated('confidence') === 'bounded';
     }
 }

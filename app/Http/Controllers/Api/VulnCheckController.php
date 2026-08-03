@@ -65,7 +65,7 @@ class VulnCheckController extends Controller
 
         $vulnerable = $componentsByProduct === []
             ? []
-            : $this->matchRanges($componentsByProduct, $comparator, $request->minCvssScore(), $request->severities());
+            : $this->matchRanges($componentsByProduct, $comparator, $request->minCvssScore(), $request->severities(), $request->onlyBoundedConfidence());
 
         if ($unmatchedPairs !== []) {
             $this->recordUnmatched(array_values($unmatchedPairs));
@@ -118,11 +118,18 @@ class VulnCheckController extends Controller
      * active — an unscored CVE can't be proven to meet a threshold, so it's
      * excluded rather than assumed to pass.
      *
+     * `onlyBoundedConfidence` restricts reporting to groups whose attribution
+     * actually resolved to the `bounded` tier, dropping the `unbounded`
+     * fallback entirely rather than reporting it with a lower confidence.
+     * This is a post-attribution filter, not a per-row one: it must run after
+     * the bounded/unbounded fallback above, since that's what decides which
+     * tier a group's attribution actually is.
+     *
      * @param  array<int, array<int, ScannedComponent>>  $componentsByProduct
      * @param  list<string>  $severities
      * @return list<array<string, mixed>>
      */
-    private function matchRanges(array $componentsByProduct, VersionComparator $comparator, ?float $minCvssScore = null, array $severities = []): array
+    private function matchRanges(array $componentsByProduct, VersionComparator $comparator, ?float $minCvssScore = null, array $severities = [], bool $onlyBoundedConfidence = false): array
     {
         $rangeTable = (new VulnerabilityRange)->getTable();
         $vulnerabilityTable = (new Vulnerability)->getTable();
@@ -212,6 +219,10 @@ class VulnCheckController extends Controller
 
                 if ($attribution->isEmpty()) {
                     $attribution = $allMatches->where('tier', 'unbounded');
+                }
+
+                if ($onlyBoundedConfidence && ($attribution->first()['tier'] ?? null) !== 'bounded') {
+                    continue;
                 }
 
                 foreach ($attribution as $match) {

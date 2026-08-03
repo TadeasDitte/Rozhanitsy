@@ -555,6 +555,56 @@ test('min_cvss_score and severity combine as an AND', function () {
         ->assertJsonPath('vulnerable.0.cve_id', 'CVE-2026-0010');
 });
 
+test('confidence=bounded excludes unbounded wildcard matches', function () {
+    $product = mapCpe();
+
+    VulnerabilityRange::factory()->for(Vulnerability::factory()->state(['cve_id' => 'CVE-2026-0011']))
+        ->affecting(null, null)
+        ->create(['product_id' => $product->id, 'raw_cpe' => 'cpe:2.3:a:acme:widget:*:*:*:*:*:*:*:*']);
+
+    postCheck([
+        'confidence' => 'bounded',
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonPath('vulnerable', []);
+});
+
+test('confidence=bounded keeps real version-range matches', function () {
+    $product = mapCpe();
+    affectedRange($product, '1.0.0', '2.0.0', ['cve_id' => 'CVE-2026-0012']);
+
+    postCheck([
+        'confidence' => 'bounded',
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])
+        ->assertOk()
+        ->assertJsonCount(1, 'vulnerable')
+        ->assertJsonPath('vulnerable.0.confidence', 'bounded');
+});
+
+test('confidence is case-insensitive and all is the default', function () {
+    $product = mapCpe();
+
+    VulnerabilityRange::factory()->for(Vulnerability::factory()->state(['cve_id' => 'CVE-2026-0013']))
+        ->affecting(null, null)
+        ->create(['product_id' => $product->id, 'raw_cpe' => 'cpe:2.3:a:acme:widget:*:*:*:*:*:*:*:*']);
+
+    postCheck([
+        'confidence' => 'BOUNDED',
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+
+    postCheck([
+        'confidence' => 'all',
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonCount(1, 'vulnerable');
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonCount(1, 'vulnerable');
+});
+
 test('a deactivated scan host cannot authenticate', function () {
     $host = ScanHost::factory()->inactive()->create();
 

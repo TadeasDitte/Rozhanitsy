@@ -38,6 +38,7 @@ Failure modes:
   "tenant_id": "p1234",
   "min_cvss_score": 7,
   "severity": ["high", "critical"],
+  "confidence": "bounded",
   "components": [
     {
       "vendor": "automattic",
@@ -54,6 +55,7 @@ Failure modes:
 | `tenant_id` | nullable, string, max 64 |
 | `min_cvss_score` | nullable, numeric, 0–10 |
 | `severity` | nullable, array of `low`\|`medium`\|`high`\|`critical` (case-insensitive) |
+| `confidence` | nullable, `bounded`\|`all` (case-insensitive), default `all` |
 | `components` | required, array, 1–2000 entries |
 | `components[].vendor` | required, string, max 191 |
 | `components[].product` | required, string, max 191 |
@@ -70,6 +72,12 @@ to an individual match, and combine as an AND when both are given. A CVE with
 no CVSS score at all (common for pre-2015 NVD entries) never satisfies either
 filter and is excluded whenever one is active — it's a known-severity filter,
 not an "assume the worst" one.
+
+`confidence: "bounded"` drops findings whose `confidence` would otherwise come
+back `unbounded` (see the `confidence` field below), keeping only matches
+against a real, structured version range. Use it to cut the pre-2015-NVD noise
+out of a report entirely instead of filtering it client-side. The default,
+`"all"`, is today's behaviour — both tiers are reported.
 
 `local_id` is opaque passthrough. The server never reads or matches on it; it is
 echoed back on every result so the caller can correlate findings with its own
