@@ -20,8 +20,8 @@ unmatched_lookups (standalone)
 | `vendors` | `id, name, slug` |
 | `products` | `id, vendor_id, name, slug, type` |
 | `cpe_map` | `id, cpe_vendor, cpe_product, product_id, match_type` |
-| `vulnerabilities` | `id, cve_id, cvss_score, cvss_vector, cvss_version, cvss_severity, description, published_at, last_modified_at, source_id, raw_data` |
-| `vulnerability_ranges` | `id, vulnerability_id, product_id, match_confidence, group_index, clause_index, version_start, version_start_incl, version_end, version_end_incl, raw_cpe` |
+| `vulnerabilities` | `id, cve_id, cvss_score, cvss_vector, cvss_version, cvss_severity, description, published_at, last_modified_at, source_id, raw_data, ghsa_checked_at, ghsa_ecosystem_mismatch` |
+| `vulnerability_ranges` | `id, vulnerability_id, product_id, match_confidence, group_index, clause_index, version_start, version_start_incl, version_end, version_end_incl, raw_cpe, version_start_missing_since` |
 | `scan_hosts` | `id, user_id, hostname, is_active, last_seen_at` |
 | `scan_logs` | `id, scan_host_id, tenant_id, component_count, vulnerable_count, unmatched_count, scanned_at` |
 | `unmatched_lookups` | `id, cpe_vendor, cpe_product, hit_count, first_seen_at, last_seen_at` |
@@ -37,25 +37,49 @@ in the command. A row with a null `driver` is recorded but not syncable.
 
 `vendors` and `products` are a curated catalog, not a mirror of NVD's CPE
 dictionary. Nothing creates them from CVE data: no code path in ingest, no
-scheduled job, nothing triggered by a scan. They come from `VendorSeeder` /
+scheduled job, nothing triggered by a sync. They come from `VendorSeeder` /
 `ProductSeeder` (a small starter catalog, run by the Docker entrypoint on every
-start — see [deployment.md](deployment.md)) and from `/admin/products` (see
-[web.md](web.md#products)), and from nowhere else.
+start — see [deployment.md](deployment.md)), from `/admin/products` (see
+[web.md](web.md#products)), and from `nvd:promote-unmatched` (see below) — and
+from nowhere else.
 
 This is deliberate, not an oversight to route around. A `Product` carries a
 `type` (`core`, `plugin`, `theme`, `extension`, `package`, `library`) that a
 raw CPE string does not encode, and NVD's CPE dictionary has an entry for
 essentially every piece of software ever assigned a CVE — auto-importing it
 would flood the catalog with entries no tenant will ever report. `NvdCpeResolver`
-only *links* CVEs to products that already exist; it has no path to invent one.
+only *links* CVEs to products that already exist; it has no path to invent one,
+and never will — CVE volume is not a signal that any given tenant actually
+runs the software in question.
 
-The consequence: a product with no `Vendor`/`Product` row can never resolve,
-no matter how much CVE data is synced. `nvd:sync --full` will not fix it,
-`nvd:sync` running hourly will not fix it — the fuzzy matcher in
-[CPE resolution](#cpe-resolution) has nothing to score against. The starter
-catalog covers common software so a fresh install isn't matching against an
-empty table, but it is not exhaustive; anything outside it reports `unmatched`
-until added by hand.
+Scan traffic is a different signal: a vendor/product pair reported by real,
+authenticated scan hosts, repeatedly, is unambiguous evidence some tenant
+actually runs it. `nvd:promote-unmatched` (see [cli.md](cli.md)) acts on that
+signal alone, promoting `unmatched_lookups` pairs seen at least `--min-hits`
+times into `Vendor`/`Product`/`cpe_map` rows, defaulting new products to type
+`plugin`. It has no opinion on whether NVD has ever published a CVE for the
+pair — it can't, `unmatched_lookups` carries no CVE data — so a promoted
+product may sit with zero ranges until a future `nvd:sync` or the immediate
+`nvd:relink` it runs afterward resolves something against it.
+
+The consequence for everything else outside these three paths: a product with
+no `Vendor`/`Product` row can never resolve, no matter how much CVE data is
+synced. `nvd:sync --full` will not fix it, `nvd:sync` running hourly will not
+fix it — the fuzzy matcher in [CPE resolution](#cpe-resolution) has nothing to
+score against. The starter catalog covers common software so a fresh install
+isn't matching against an empty table, but it is not exhaustive; anything
+outside it reports `unmatched` until added by hand or promoted.
+
+Plugins each get their own vendor slug (`elementor`/`elementor`,
+`automattic`/`akismet`, `woocommerce`/`woocommerce`, `yoast`/`yoast_seo`,
+`rocklobster`/`contact_form_7`) rather than being nested under a shared
+platform vendor like `wordpress`. NVD assigns CPE identities per-plugin, not
+per-platform, and `NvdCpeResolver`'s fuzzy match is vendor-weighted (0.4) —
+a plugin seeded under the wrong vendor scores 0 on that half of the formula
+regardless of how well the product name matches, and can never be rescued by
+fuzzy matching. `nvd:promote-unmatched` follows the same convention for
+whatever it creates, since it names the vendor directly from the scanner's
+own `cpe_vendor` string.
 
 ### cpe_map
 
@@ -102,18 +126,86 @@ unique on the pair. Written with a single batched upsert that increments
 `nvd:sync` per CVE, inside a transaction:
 
 1. Upsert `vulnerabilities` by `cve_id`, storing the whole CVE in `raw_data`.
-2. Hand off to `VulnerabilityRangeBuilder::build()`, which deletes existing
-   `vulnerability_ranges` for that CVE and rebuilds them from
-   `configurations`, resolving each `cpeMatch` and assigning
-   `group_index`/`clause_index` per the rules in [vulnerability_ranges](#vulnerability_ranges).
+2. Hand off to `VulnerabilityRangeBuilder::build()`, which rebuilds
+   `vulnerability_ranges` for that CVE from `configurations`, resolving each
+   `cpeMatch` and assigning `group_index`/`clause_index` per the rules in
+   [vulnerability_ranges](#vulnerability_ranges).
 
-Deleting and rebuilding makes a re-sync idempotent rather than accumulating
-stale rows.
+Rebuilding is an upsert by `(group_index, clause_index, raw_cpe)`, not a blind
+delete-then-recreate: a row whose identity still appears in the new
+`configurations` is updated in place, and only rows whose identity no longer
+appears are deleted. This makes a re-sync idempotent the same way delete-and-
+recreate would, but it also lets `created_at` and
+[`version_start_missing_since`](#stability-guard) survive an unchanged range
+across resyncs — both would reset to "now" on every sync under a delete-and-
+recreate strategy, which would defeat the stability guard entirely (every
+sync would look like the shape was just observed for the first time).
 
 `VulnerabilityRangeBuilder` is the only thing that parses `configurations` —
 `nvd:sync` and `nvd:rebuild-ranges` (see [cli.md](cli.md)) both call it, one
 from a live NVD response, the other from a `vulnerabilities.raw_data` already
 on disk. They cannot drift apart because there's only one implementation.
+
+### Stability guard
+
+A `cpeMatch` with `versionEndExcluding`/`versionEndIncluding` but no start
+bound at all is ambiguous: it can genuinely mean "vulnerable since release",
+or it can mean NVD has not finished scoping the CVE yet and will add a floor
+later. Trusting it immediately produces false positives against very old,
+unaffected installs (see the Joomla CVEs this guard was built for — NVD
+published several 2026 entries with only an end bound, floors added days
+later).
+
+`VulnerabilityRangeBuilder` does not guess a cutoff from NVD's own
+`published`/`lastModified` metadata — a CVE can regress into this half-finished
+shape at any point in its life, not just shortly after publication. Instead it
+tracks how long *this installation* has observed the exact shape (`no start
+bound`, `same end bound`) stably across its own resyncs, in
+`version_start_missing_since`, and only trusts the range once that has held
+for 14 days (`VulnerabilityRangeBuilder::GRACE_PERIOD_DAYS`). Until then,
+`match_confidence` is forced to `unmatched` regardless of what
+`NvdCpeResolver` returned — see `nvd:pending-review` in
+[cli.md](cli.md) to see what's currently held back and why.
+
+The shape resetting is the self-healing part: the moment NVD fills in a real
+start bound, or the end bound changes, `version_start_missing_since` resets to
+`now()` on the next sync (see the upsert identity above — same
+`raw_cpe`/`group_index`/`clause_index`, different `version_start`/`version_end`,
+counts as a shape change). A genuinely floor-less range keeps re-confirming
+the same shape every sync and graduates permanently once 14 days pass; a
+transient one corrects itself as soon as NVD does.
+
+### GHSA cross-check
+
+NVD's CPE match can point a library CVE at the wrong product when the library
+shares a vendor slug with a platform it's associated with. CVE-2025-25226 is
+the case this exists for: NVD's CPE match is
+`cpe:2.3:a:joomla:joomla\!:*` — the Joomla CMS itself — but the CVE is
+actually about the standalone `joomla/database` Composer package, which GHSA
+correctly lists under the `composer` ecosystem. Left alone, that CVE
+attributes to every scanned Joomla CMS install regardless of whether it uses
+that library at all.
+
+`nvd:cross-check-core` (see [cli.md](cli.md)) checks every `Vulnerability`
+with at least one range resolved to a `type = core` product against GitHub's
+Security Advisory API. If GHSA independently tags the CVE under a package
+ecosystem, that's strong evidence the CPE match is wrong, and the verdict is
+stored on `vulnerabilities.ghsa_ecosystem_mismatch` — permanently, not just for
+the ranges that exist at check time. `ghsa_checked_at` records when the check
+last ran so a plain `nvd:cross-check-core` skips CVEs already checked;
+`--force` re-checks them.
+
+`VulnerabilityRangeBuilder` consults `ghsa_ecosystem_mismatch` on every
+rebuild: if set, any range that resolves to a `core` product is forced to
+`match_confidence = unmatched`, the same as an unresolved one. Without this,
+the next `nvd:sync` or `nvd:rebuild-ranges` would recompute confidence from
+`NvdCpeResolver` alone and silently undo the downgrade — the flag exists
+specifically so the fix survives ingestion, not just the run that found it.
+
+A GHSA check that fails (rate limited, network error, no record at all beyond
+a plain 404) leaves `ghsa_checked_at` untouched rather than recording a false
+"clean" verdict, so it's retried on the next run instead of being silently
+skipped forever.
 
 ## CPE resolution
 

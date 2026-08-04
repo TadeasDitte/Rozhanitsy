@@ -14,12 +14,16 @@ view, and event caches. The application is on `http://localhost:8000`.
 
 The starter catalog (`VendorSeeder`/`ProductSeeder`) covers common software —
 WordPress, Joomla, Drupal, PHP, OpenSSL, nginx, Apache, MySQL, phpMyAdmin and a
-handful of plugins each. It is not exhaustive. Extend it from
-`/admin/products` as scans report gaps; see
-[schema.md](schema.md#vendors-and-products) for why nothing does this
-automatically. After adding a product to an install that has already run
+handful of plugins each, each plugin under its own vendor slug rather than a
+shared platform vendor (see [schema.md](schema.md#vendors-and-products) for
+why). It is not exhaustive. `nvd:promote-unmatched` runs daily and closes gaps
+on its own once a pair is seen often enough; extend the catalog by hand from
+`/admin/products` for anything below that threshold or that needs attention
+sooner. After adding a product manually to an install that has already run
 `nvd:sync`, follow with `php artisan nvd:relink` — the new product does not
-retroactively resolve CVEs already stored as unmatched.
+retroactively resolve CVEs already stored as unmatched. `nvd:promote-unmatched`
+does this itself as its last step, so nothing extra is needed when it's the
+one adding the product.
 
 Register the first account through the web UI; it becomes the administrator.
 
@@ -28,7 +32,7 @@ Register the first account through the web UI; it becomes the administrator.
 | Service | Role |
 | --- | --- |
 | `app` | FrankenPHP serving the application on `:8080`, published as `8000` |
-| `scheduler` | `php artisan schedule:work`, runs `nvd:sync` hourly |
+| `scheduler` | `php artisan schedule:work`, runs `nvd:sync` hourly and `nvd:cross-check-core`/`nvd:promote-unmatched` daily |
 | `db` | Postgres 17, not published to the host |
 
 `scheduler` shares the image with `app` and is distinguished by
@@ -46,17 +50,26 @@ database credentials.
 | `APP_PORT` | `8000` | Host port for the app container |
 | `APP_URL` | `http://localhost:8000` | Used for generated URLs |
 | `APP_KEY` | generated | Persisted to the storage volume if unset |
+| `IMAGE_TAG` | `main` | Image tag to pull; see [Releases](#releases) to pin a version |
 | `POSTGRES_DB` | `rozhanitsy` | |
 | `POSTGRES_USER` | `rozhanitsy` | |
 | `POSTGRES_PASSWORD` | `rozhanitsy` | Change before exposing anything |
 | `NVD_API_KEY` | empty | Raises the sync from 5 to 50 requests / 30s |
+| `GITHUB_TOKEN` | empty | Raises `nvd:cross-check-core`'s GHSA requests from 60 to 5000 / hour |
 | `TRUSTED_PROXIES` | `*` | See below |
 | `LOG_LEVEL` | `info` | Logs go to stderr |
 
 Sessions, cache, and queue all use the database. There is no Redis dependency
 and no queue worker, because nothing dispatches jobs.
 
-Those ten are the only variables that do anything. Compose reads `.env` to
+`nvd:cross-check-core` runs daily at `--limit=50`, so the unauthenticated GHSA
+rate limit is not a practical problem unless you lower `--min-hits` on
+`nvd:promote-unmatched` or otherwise grow the core-product catalog a lot. Set
+`GITHUB_TOKEN` to a classic PAT with no scopes (public read access only needs
+an authenticated identity, not permissions) if `nvd:cross-check-core` logs
+warn about non-2xx responses.
+
+These are the only variables that do anything. Compose reads `.env` to
 interpolate `${...}` in `compose.yaml`; a variable not referenced there never
 reaches a container. The file is never copied into the image — `.dockerignore`
 excludes it — so on a server it serves only Compose, not Laravel.
@@ -69,11 +82,17 @@ Place next to `compose.yaml`:
 APP_URL=https://rozhanitsy.example.com
 APP_PORT=8000
 
+# Optional. Omit and Compose pulls `main` — the latest commit on the default
+# branch, rebuilt on every push. Pin a release tag (e.g. v1.2.0) for a
+# reproducible deploy; see Releases below.
+# IMAGE_TAG=v1.2.0
+
 POSTGRES_DB=rozhanitsy
 POSTGRES_USER=rozhanitsy
 POSTGRES_PASSWORD=generate-a-long-random-one
 
 NVD_API_KEY=
+GITHUB_TOKEN=
 TRUSTED_PROXIES=*
 LOG_LEVEL=info
 
@@ -182,6 +201,27 @@ stage runs as a non-root user with opcache validation disabled. Roughly 420 MB.
 
 The image builds with both BuildKit and the legacy builder.
 
+## Releases
+
+Versioning is automated by `release-please` (`.github/workflows/release-please.yml`,
+config in `release-please-config.json`/`.release-please-manifest.json`). It
+watches commits on `main` for Conventional Commits prefixes (`feat:`, `fix:`,
+...) and keeps a "Release vX.Y.Z" pull request up to date with the next
+version number and a generated `CHANGELOG.md`. Nothing is tagged or released
+until that PR is merged — merging is what creates the `vX.Y.Z` tag and the
+GitHub Release, which in turn is what `docker-publish.yml`'s `tags: - 'v*'`
+trigger is watching for, so a merge is also what publishes the versioned
+`ghcr.io` image.
+
+Every push to `main` still publishes the `main` tag regardless (see
+[Image](#image)), so day-to-day deploys tracking `main` are unaffected either
+way. Releases exist for operators who want a fixed point to pin `IMAGE_TAG` to
+and a changelog to read before upgrading, not as a gate on shipping.
+
+A commit type with no changelog section configured (`ci:`, `chore:`, `test:`)
+still counts toward triggering a release PR but is omitted from the generated
+changelog — see `changelog-sections` in `release-please-config.json`.
+
 ## Upgrades
 
 ```bash
@@ -191,6 +231,12 @@ docker compose up -d
 
 Migrations run on start-up. The `app` container is the only one that migrates;
 run a single replica, or run migrations out of band before scaling.
+
+Pinning `IMAGE_TAG` to a release (see [Releases](#releases)) instead of
+tracking `main` means `docker compose pull && docker compose up -d` does
+nothing between releases and picks up exactly one, deliberate version when you
+bump it — useful if you'd rather read a changelog than land on whatever `main`
+happened to be at deploy time.
 
 ## Backups
 

@@ -218,7 +218,14 @@ docker compose exec app php artisan tinker --execute \
 
 - Disk on the volume mount.
 - `unmatched_lookups` growth, which is coverage rather than failure — see
-  `php artisan nvd:unmatched`.
+  `php artisan nvd:unmatched`. `nvd:promote-unmatched` runs daily and closes
+  gaps above its hit threshold on its own; persistent growth below that
+  threshold is normal, not a signal something's broken.
+- `nvd:pending-review` backlog growing without bound — a handful of rows held
+  back by the stability guard at any time is normal; a GHSA-mismatch row that
+  never clears despite looking wrong on inspection means
+  `nvd:cross-check-core --force` after fixing the underlying advisory data, or
+  a manual look at why GHSA's advisory changed.
 
 Logs go to stderr and are captured by the Docker log driver. Cap them or a busy
 instance will fill the disk:
@@ -231,6 +238,8 @@ instance will fill the disk:
 
 ```bash
 docker compose exec app php artisan nvd:unmatched --min-hits=5   # coverage gaps worth mapping
+docker compose exec app php artisan nvd:pending-review           # ranges held back and why
+docker compose exec app php artisan cpe:collisions               # catalog entries worth a second look
 docker compose exec app php artisan sanctum:prune-expired --hours=24
 docker compose exec app php artisan user:admin you@example.com   # regain admin access
 ```
@@ -263,7 +272,8 @@ docker compose exec db psql -U rozhanitsy -c "ALTER USER rozhanitsy WITH PASSWOR
 | Symptom | Cause | Action |
 | --- | --- | --- |
 | `/up` 200, `vulnerable` always empty | Sync never completed | Check `last_synced_at`, run `nvd:sync` manually |
-| Every component `unmatched` | Product not in the starter catalog and not added since | Add it via `/admin/products`, then `nvd:relink` |
+| Every component `unmatched` | Product not in the starter catalog and not added since | Add it via `/admin/products`, then `nvd:relink`, or wait for `nvd:promote-unmatched` |
+| A known-affected component never reports vulnerable | Range held back by the stability guard or a GHSA ecosystem mismatch | `php artisan nvd:pending-review` |
 | Sync exits 1 immediately | Source row missing or incomplete | `db:seed --class=SourceSeeder --force` |
 | Scanners get 401 | Token revoked, or host `is_active = false` | Regenerate in the UI or `scan-host:create --rotate` |
 | Scanners get 429 | 30 req/min per tenant | Batch per tenant, do not send per component |

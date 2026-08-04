@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 use Throwable;
 
 class AuthentikController extends Controller
@@ -17,7 +18,7 @@ class AuthentikController extends Controller
     /**
      * Redirect the user to Authentik for authentication.
      */
-    public function redirect(): RedirectResponse
+    public function redirect(): RedirectResponse|SymfonyRedirectResponse
     {
         return Socialite::driver('authentik')->redirect();
     }

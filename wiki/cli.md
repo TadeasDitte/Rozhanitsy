@@ -66,6 +66,52 @@ php artisan nvd:unmatched --limit=20 --min-hits=10
 Showing 1 of 1 unmatched pairs.
 ```
 
+## nvd:promote-unmatched
+
+```
+php artisan nvd:promote-unmatched [--min-hits=5] [--limit=100] [--type=plugin] [--dry-run]
+```
+
+Promotes `unmatched_lookups` pairs seen at least `--min-hits` times into real
+`Vendor`/`Product`/`cpe_map` rows, up to `--limit` pairs per run, ordered by
+hit count. Scheduled daily by `schedule:work` in the scheduler container, with
+`withoutOverlapping` at a 6 hour expiry — see
+[schema.md](schema.md#vendors-and-products) for why this is the one automated
+path that's allowed to create catalog entries.
+
+A vendor/product pair reported by real, authenticated scan traffic repeatedly
+is treated as sufficient evidence some tenant runs it; the command has no
+opinion on whether NVD has ever published a CVE against it. Promoted products
+default to `type = plugin` — the safe default, since it excludes them from
+`nvd:cross-check-core`'s `core`-only scope — and the promoted `cpe_map` row
+uses the pair's raw strings exactly as reported, since `/api/vulns/check`
+matches against them literally (case-insensitively).
+
+A pair that fails to promote (a name collision with an existing product, most
+likely) is skipped with a warning rather than aborting the run; it stays in
+`unmatched_lookups` and is retried on the next run.
+
+```bash
+php artisan nvd:promote-unmatched
+php artisan nvd:promote-unmatched --min-hits=10 --type=library
+php artisan nvd:promote-unmatched --dry-run
+```
+
+```
++------------+-------------+------+
+| CPE Vendor | CPE Product | Hits |
++------------+-------------+------+
+| elementor  | elementor   | 12   |
++------------+-------------+------+
+
+Promoted 1 pair(s).
+Relinked 3 vulnerability ranges.
+```
+
+If anything was promoted, the command finishes by running `nvd:relink` so any
+CVE data already on disk for the newly catalogued products resolves
+immediately, rather than waiting on the next `nvd:sync`.
+
 ## nvd:relink
 
 ```
@@ -131,6 +177,101 @@ Rebuilt 2000 vulnerabilities.
 Rebuilt 4000 vulnerabilities.
 ...
 Done. Rebuilt ranges for 372520 vulnerabilities.
+```
+
+## nvd:cross-check-core
+
+```
+php artisan nvd:cross-check-core [--limit=50] [--force]
+```
+
+Cross-checks CVEs resolved to a `type = core` product against GitHub's
+Security Advisory API, catching the case where NVD's CPE match points a
+library CVE at the platform it shares a vendor slug with — see
+[schema.md](schema.md#ghsa-cross-check) for the mechanism and the
+CVE-2025-25226 case it exists for. Scheduled daily by `schedule:work` in the
+scheduler container, with `withoutOverlapping` at a 6 hour expiry.
+
+Without `--force`, CVEs with a non-null `ghsa_checked_at` are skipped —
+routine runs only look at CVEs newly resolved to a core product since the
+last check. `--force` re-checks everything in scope, useful after a GHSA
+record changes.
+
+A GHSA request that fails (rate limit, network error) leaves
+`ghsa_checked_at` untouched rather than recording a false "clean" verdict, so
+it's retried on the next run.
+
+```bash
+php artisan nvd:cross-check-core
+php artisan nvd:cross-check-core --limit=200 --force
+```
+
+```
+CVE-2025-25226: GHSA tags this under a package ecosystem but it resolved to a core product here — downgraded 1 range(s).
+Checked 12 CVE(s), flagged 1 as ecosystem mismatches.
+```
+
+Set `GITHUB_TOKEN` to raise GHSA's unauthenticated rate limit (60/hour) if
+`--limit`/`--min-hits` on `nvd:promote-unmatched` grow the core catalog enough
+to matter — see [deployment.md](deployment.md#environment).
+
+## nvd:pending-review
+
+```
+php artisan nvd:pending-review [--limit=50]
+```
+
+Lists `vulnerability_ranges` currently held back from live matching despite
+having a resolved `product_id` — either the stability guard hasn't cleared
+them yet, or `nvd:cross-check-core` flagged the CVE as a GHSA ecosystem
+mismatch. This is a visibility tool, not an error log: every row here is
+`match_confidence = unmatched` on purpose, per
+[schema.md](schema.md#stability-guard).
+
+```bash
+php artisan nvd:pending-review
+php artisan nvd:pending-review --limit=20
+```
+
+```
++----------------+---------+----------------------+--------------+---------------------------------+
+| CVE            | Product | Reason               | Version End  | Raw CPE                         |
++----------------+---------+----------------------+--------------+---------------------------------+
+| CVE-2026-40383 | Joomla  | Missing lower bound  | 6.1.1        | cpe:2.3:a:joomla:joomla\!:*:*... |
+| CVE-2025-25226 | Joomla  | GHSA: library, not   | 2.2.0        | cpe:2.3:a:joomla:joomla\!:*:*... |
+|                |         | core product         |              |                                  |
++----------------+---------+----------------------+--------------+---------------------------------+
+
+Missing-floor rows self-heal once NVD fills in the bound or the stability grace period elapses (nvd:sync / nvd:rebuild-ranges). GHSA-mismatch rows stay held back permanently unless the mismatch is cleared with nvd:cross-check-core --force.
+Showing 2 of 2.
+```
+
+## cpe:collisions
+
+```
+php artisan cpe:collisions
+```
+
+Lists `cpe_vendor` values whose distinct `cpe_product` entries in `cpe_map`
+resolve to the same `product_id` — the `GROUP BY cpe_vendor, product_id
+HAVING COUNT(DISTINCT cpe_product) > 1` audit query. A manual-review tool, not
+a bug detector: some collisions are legitimate name variants (see the `joomla`
+vendor's `joomla`/`joomla\!` pair in [schema.md](schema.md#cpe_map)), others
+are a genuine conflation worth splitting apart.
+
+```bash
+php artisan cpe:collisions
+```
+
+```
++--------+---------+-------------+------------+
+| Vendor | Product | CPE Product | Match Type |
++--------+---------+-------------+------------+
+| joomla | Joomla  | joomla      | exact      |
+| joomla | Joomla  | joomla!     | exact      |
++--------+---------+-------------+------------+
+
+Not every row above is wrong — some are legitimately-merged name variants. Verify each product_id genuinely represents one independently-versioned thing before treating it as a bug.
 ```
 
 ## scan-host:create
