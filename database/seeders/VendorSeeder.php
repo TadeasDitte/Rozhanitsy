@@ -13,6 +13,11 @@ class VendorSeeder extends Seeder
      */
     public const NAMES = [
         'WordPress',
+        'Automattic',
+        'WooCommerce',
+        'Yoast',
+        'Elementor',
+        'Rocklobster',
         'Joomla',
         'Drupal',
         'PHP',

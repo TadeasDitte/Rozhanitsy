@@ -153,6 +153,7 @@ class VulnCheckController extends Controller
             ->get([
                 "{$rangeTable}.vulnerability_id",
                 "{$rangeTable}.product_id",
+                "{$rangeTable}.match_confidence",
                 "{$rangeTable}.group_index",
                 "{$rangeTable}.clause_index",
                 "{$rangeTable}.version_start",
@@ -181,6 +182,17 @@ class VulnCheckController extends Controller
                     $clauseMatches = [];
 
                     foreach ($clauseRows as $range) {
+                        /**
+                         * A row can be resolved to a real product yet still be
+                         * `unmatched` confidence when its version data itself is
+                         * untrustworthy (e.g. an incomplete NVD record) rather
+                         * than its product — it must never contribute a match,
+                         * even when a sibling row in the same OR clause is valid.
+                         */
+                        if ($range->match_confidence === VulnerabilityRange::MATCH_UNMATCHED) {
+                            continue;
+                        }
+
                         foreach ($componentsByProduct[$range->product_id] ?? [] as $componentIndex => $component) {
                             $isAffected = $comparator->isAffected(
                                 $component['version'],

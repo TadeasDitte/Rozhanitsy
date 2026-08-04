@@ -12,3 +12,13 @@ Schedule::command('nvd:sync')
     ->hourly()
     ->withoutOverlapping(expiresAt: 6 * 60)
     ->runInBackground();
+
+Schedule::command('nvd:cross-check-core')
+    ->daily()
+    ->withoutOverlapping(expiresAt: 6 * 60)
+    ->runInBackground();
+
+Schedule::command('nvd:promote-unmatched')
+    ->daily()
+    ->withoutOverlapping(expiresAt: 6 * 60)
+    ->runInBackground();

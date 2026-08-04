@@ -17,16 +17,27 @@ class ProductSeeder extends Seeder
     public const CATALOG = [
         'wordpress' => [
             ['WordPress', 'core'],
+        ],
+        'automattic' => [
             ['Akismet', 'plugin'],
+        ],
+        'woocommerce' => [
             ['WooCommerce', 'plugin'],
+        ],
+        'yoast' => [
             ['Yoast SEO', 'plugin'],
+        ],
+        'elementor' => [
             ['Elementor', 'plugin'],
+        ],
+        'rocklobster' => [
             ['Contact Form 7', 'plugin'],
         ],
         'joomla' => [
             ['Joomla', 'core'],
             ['JCE', 'plugin'],
             ['Akeeba Backup', 'plugin'],
+            ['Joomla Framework Database', 'library'],
         ],
         'drupal' => [
             ['Drupal', 'core'],

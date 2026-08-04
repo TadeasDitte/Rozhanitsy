@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             SourceSeeder::class,
             VendorSeeder::class,
             ProductSeeder::class,
+            CpeMapSeeder::class,
         ]);
 
     }

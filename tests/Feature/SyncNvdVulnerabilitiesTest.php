@@ -437,6 +437,131 @@ test('multiple configurations increment the group index', function () {
     expect(VulnerabilityRange::pluck('group_index')->sort()->values()->all())->toBe([0, 1]);
 });
 
+/**
+ * The reported bug: NVD's CPE match data can be incomplete at any point in a
+ * CVE's life (not just shortly after publish), so a configuration can arrive
+ * with an end bound but no start bound yet even though the real advisory has
+ * one. Trusting that as "no lower bound" made e.g. very old Joomla installs
+ * look affected by CVEs that only started at a much later version. Such a
+ * range is held back the moment we first see this shape.
+ */
+test('an end bound with no start bound is held back as unmatched the moment we first see it', function () {
+    $vendor = Vendor::factory()->create(['name' => 'joomla', 'slug' => 'joomla']);
+    $product = Product::factory()->for($vendor)->create(['name' => 'Joomla', 'slug' => 'joomla']);
+    CpeMap::factory()->forPair('joomla', 'joomla', $product)->create();
+
+    fakeNvd([cveEntry('CVE-2026-9001', [
+        cpeMatch('cpe:2.3:a:joomla:joomla:*:*:*:*:*:*:*:*', ['versionEndExcluding' => '6.1.1']),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->product_id)->toBe($product->id)
+        ->and($range->match_confidence)->toBe('unmatched')
+        ->and($range->version_start)->toBeNull()
+        ->and($range->version_end)->toBe('6.1.1')
+        ->and($range->version_start_missing_since)->not->toBeNull();
+});
+
+/**
+ * The self-healing story: the same null-start/end-set shape re-confirmed by
+ * our own resyncs across the grace period graduates to trusted — no reliance
+ * on NVD's published/lastModified metadata, just our own observation history
+ * surviving across build() calls via upsert-by-identity.
+ */
+test('a null-start shape observed stably across the grace period graduates to trusted', function () {
+    $vendor = Vendor::factory()->create(['name' => 'joomla', 'slug' => 'joomla']);
+    $product = Product::factory()->for($vendor)->create(['name' => 'Joomla', 'slug' => 'joomla']);
+    CpeMap::factory()->forPair('joomla', 'joomla', $product)->create();
+
+    $entry = fn () => [cveEntry('CVE-2026-9002', [
+        cpeMatch('cpe:2.3:a:joomla:joomla:*:*:*:*:*:*:*:*', ['versionEndExcluding' => '6.1.1']),
+    ])];
+
+    $this->travelTo(now()->subDays(20));
+    fakeNvd($entry());
+    $this->artisan('nvd:sync --full')->assertSuccessful();
+
+    expect(VulnerabilityRange::sole()->match_confidence)->toBe('unmatched');
+
+    $this->travelBack();
+    fakeNvd($entry());
+    $this->artisan('nvd:sync --full')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->match_confidence)->toBe('exact')
+        ->and($range->version_start)->toBeNull()
+        ->and($range->version_end)->toBe('6.1.1');
+});
+
+/**
+ * Self-healing, the other direction: once NVD fills in the real start bound
+ * on a later resync, the range is trusted immediately — it never has to wait
+ * out the grace period. Uses fakeSequence() rather than two fakeNvd() calls:
+ * Http::fake() registered a second time does not replace the first stub for
+ * an already-matched URL pattern within the same test, so a genuinely
+ * different second response needs the sequence form.
+ */
+test('a start bound filled in on a later resync is trusted immediately, no grace period needed', function () {
+    $vendor = Vendor::factory()->create(['name' => 'joomla', 'slug' => 'joomla']);
+    $product = Product::factory()->for($vendor)->create(['name' => 'Joomla', 'slug' => 'joomla']);
+    CpeMap::factory()->forPair('joomla', 'joomla', $product)->create();
+
+    Http::fakeSequence()
+        ->push([
+            'totalResults' => 1,
+            'vulnerabilities' => [cveEntry('CVE-2026-9004', [
+                cpeMatch('cpe:2.3:a:joomla:joomla:*:*:*:*:*:*:*:*', ['versionEndExcluding' => '6.1.1']),
+            ])],
+        ])
+        ->push([
+            'totalResults' => 1,
+            'vulnerabilities' => [cveEntry('CVE-2026-9004', [
+                cpeMatch('cpe:2.3:a:joomla:joomla:*:*:*:*:*:*:*:*', [
+                    'versionStartIncluding' => '3.2.1',
+                    'versionEndExcluding' => '6.1.1',
+                ]),
+            ])],
+        ]);
+
+    $this->artisan('nvd:sync --full')->assertSuccessful();
+
+    expect(VulnerabilityRange::sole()->match_confidence)->toBe('unmatched');
+
+    $this->artisan('nvd:sync --full')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->match_confidence)->toBe('exact')
+        ->and($range->version_start)->toBe('3.2.1')
+        ->and($range->version_start_missing_since)->toBeNull();
+});
+
+/** Control case mirroring CVE-2026-40383 from the incident report: a CVE with both bounds present from the start is unaffected by the stability guard. */
+test('a cve with both bounds present is unaffected by the stability guard', function () {
+    $vendor = Vendor::factory()->create(['name' => 'joomla', 'slug' => 'joomla']);
+    $product = Product::factory()->for($vendor)->create(['name' => 'Joomla', 'slug' => 'joomla']);
+    CpeMap::factory()->forPair('joomla', 'joomla', $product)->create();
+
+    fakeNvd([cveEntry('CVE-2026-9003', [
+        cpeMatch('cpe:2.3:a:joomla:joomla:*:*:*:*:*:*:*:*', [
+            'versionStartIncluding' => '3.2.1',
+            'versionEndExcluding' => '5.4.6',
+        ]),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $range = VulnerabilityRange::sole();
+
+    expect($range->match_confidence)->toBe('exact')
+        ->and($range->version_start)->toBe('3.2.1')
+        ->and($range->version_end)->toBe('5.4.6');
+});
+
 test('a negated node is skipped without affecting its siblings', function () {
     fakeNvd([cveEntryWithConfigurations('CVE-2026-5004', [
         [

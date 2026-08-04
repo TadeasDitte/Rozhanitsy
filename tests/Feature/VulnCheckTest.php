@@ -239,6 +239,57 @@ test('unmatched ranges are never used for matching', function () {
         ->assertJsonPath('vulnerable', []);
 });
 
+/**
+ * The reported bug's exact shape: a CVE with two disjoint version bands as
+ * plain OR alternatives in the same clause, where one band's lower bound
+ * couldn't be trusted (see VulnerabilityRangeBuilder's recency guard) and
+ * was stored as `unmatched` confidence. It must not contribute a match just
+ * because a sibling row in the same clause is valid.
+ */
+test('an unmatched-confidence range does not contribute a match even when a sibling range in the same clause is valid', function () {
+    $product = mapCpe();
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2026-9010']);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 0)
+        ->affecting(null, '5.4.5', true, true)
+        ->create(['product_id' => $product->id, 'match_confidence' => 'unmatched']);
+
+    VulnerabilityRange::factory()->for($vulnerability)->inGroup(0, 0)
+        ->affecting('6.0.0', '6.1.0', true, true)
+        ->create(['product_id' => $product->id, 'match_confidence' => 'exact']);
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '3.6.4']],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+
+    postCheck([
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '6.0.5']],
+    ])->assertOk()->assertJsonCount(1, 'vulnerable');
+});
+
+/**
+ * The reported bug: joomla/database (the standalone Framework library) and
+ * Joomla CMS share a cpe_vendor but are versioned independently and must
+ * resolve to different products, so a CVE against one never leaks onto the
+ * other just because both cpe_map rows start with "joomla".
+ */
+test('cpe_map rows sharing a vendor but different products keep their vulnerability ranges separate', function () {
+    $cms = Product::factory()->create(['name' => 'Joomla']);
+    $framework = Product::factory()->create(['name' => 'Joomla Framework Database']);
+    CpeMap::factory()->forPair('joomla', 'joomla', $cms)->create();
+    CpeMap::factory()->forPair('joomla', 'database', $framework)->create();
+
+    affectedRange($framework, '1.0.0', '2.2.0', ['cve_id' => 'CVE-2025-25226']);
+
+    postCheck([
+        'components' => [['vendor' => 'joomla', 'product' => 'joomla', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonPath('vulnerable', []);
+
+    postCheck([
+        'components' => [['vendor' => 'joomla', 'product' => 'database', 'version' => '1.5.0']],
+    ])->assertOk()->assertJsonCount(1, 'vulnerable');
+});
+
 test('a fuzzy range is still used for matching', function () {
     $product = mapCpe();
 
