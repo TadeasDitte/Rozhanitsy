@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { Passkeys } from '@laravel/passkeys';
+import { onMounted, ref } from 'vue';
 import {
     index as confirmOptions,
     store as confirmStore,
@@ -9,6 +11,7 @@ import PasskeyVerify from '@/components/PasskeyVerify.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/password/confirm';
 
@@ -18,6 +21,12 @@ defineOptions({
         description:
             'This is a secure area of the application. Please confirm your password before continuing.',
     },
+});
+
+const isPasskeySupported = ref(false);
+
+onMounted(() => {
+    isPasskeySupported.value = Passkeys.isSupported();
 });
 </script>
 
@@ -31,8 +40,18 @@ defineOptions({
         }"
         label="Confirm with passkey"
         loading-label="Confirming..."
-        separator="Or confirm with password"
     />
+
+    <div v-if="isPasskeySupported" class="relative my-6">
+        <div class="absolute inset-0 flex items-center">
+            <Separator class="w-full" />
+        </div>
+        <div class="relative flex justify-center text-xs uppercase">
+            <span class="bg-background px-2 text-muted-foreground">
+                Or confirm with password
+            </span>
+        </div>
+    </div>
 
     <Form
         v-bind="store.form()"
