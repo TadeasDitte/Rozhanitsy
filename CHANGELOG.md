@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.1](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.2.0...v1.2.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* improve database connection check and error handling in entrypoint script ([9b1c504](https://github.com/TadeasDitte/Rozhanitsy/commit/9b1c504794029e43f217e7735686dccc108dc468))
+
+
+### Refactoring
+
+* renamed files so they display with capital on the wiki page ([7878ce9](https://github.com/TadeasDitte/Rozhanitsy/commit/7878ce90a0aa4fc916374f2f1ffb8e878b83315a))
+
 ## [1.2.0](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.1.0...v1.2.0) (2026-08-05)
 
 
