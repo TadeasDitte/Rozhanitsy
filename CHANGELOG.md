@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.2.1...v1.3.0) (2026-08-05)
+
+
+### Features
+
+* fixed frontend issue [#5](https://github.com/TadeasDitte/Rozhanitsy/issues/5) ([8767e8e](https://github.com/TadeasDitte/Rozhanitsy/commit/8767e8e421cd05fa9e64e8a8af69d266f953bd06))
+
 ## [1.2.1](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.2.0...v1.2.1) (2026-08-05)
 
 
