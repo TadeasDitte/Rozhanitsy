@@ -7,7 +7,31 @@ wait_for_database() {
     [ "${DB_CONNECTION:-pgsql}" = "pgsql" ] || return 0
 
     attempt=0
-    until php -r 'exit(@fsockopen(getenv("DB_HOST") ?: "127.0.0.1", (int) (getenv("DB_PORT") ?: 5432), $e, $s, 2) ? 0 : 1);'; do
+    while true; do
+        php -r '
+            $host = getenv("DB_HOST") ?: "127.0.0.1";
+            $port = getenv("DB_PORT") ?: "5432";
+            $db   = getenv("DB_DATABASE") ?: "";
+            $user = getenv("DB_USERNAME") ?: "";
+            $pass = getenv("DB_PASSWORD") ?: "";
+
+            try {
+                new PDO("pgsql:host={$host};port={$port};dbname={$db}", $user, $pass, [PDO::ATTR_TIMEOUT => 2]);
+                exit(0);
+            } catch (PDOException $e) {
+                fwrite(STDERR, $e->getMessage() . PHP_EOL);
+                exit(str_contains($e->getMessage(), "password authentication failed") ? 2 : 1);
+            }
+        '
+        status=$?
+
+        [ "$status" -eq 0 ] && return 0
+
+        if [ "$status" -eq 2 ]; then
+            echo "entrypoint: password authentication failed for DB_USERNAME=${DB_USERNAME} at ${DB_HOST}:${DB_PORT} -- credentials do not match the database. Postgres only applies POSTGRES_PASSWORD when it initializes a fresh data volume, so a rotated password will not take effect on an existing volume; update DB_PASSWORD to match, or reset the role's password inside the database." >&2
+            exit 1
+        fi
+
         attempt=$((attempt + 1))
         if [ "$attempt" -ge 60 ]; then
             echo "entrypoint: database at ${DB_HOST}:${DB_PORT} unreachable after 60s" >&2

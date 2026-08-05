@@ -70,7 +70,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U "${POSTGRES_USER:-rozhanitsy}" -d "${POSTGRES_DB:-rozhanitsy}"
+        - PGPASSWORD="$$POSTGRES_PASSWORD" psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1
       interval: 5s
       timeout: 5s
       retries: 20
