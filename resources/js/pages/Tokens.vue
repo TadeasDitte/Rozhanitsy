@@ -91,7 +91,7 @@ function revoke(host: ScanHostRow) {
 
             <div class="flex items-center gap-2">
                 <code
-                    class="flex-1 overflow-x-auto rounded-md border border-border bg-background px-3 py-2 font-mono text-xs"
+                    class="flex h-8 flex-1 items-center overflow-x-auto rounded-md border border-border bg-background px-3 font-mono text-xs"
                     >{{ issued.token }}</code
                 >
                 <Button
@@ -108,10 +108,10 @@ function revoke(host: ScanHostRow) {
         </div>
 
         <form
-            class="flex flex-col gap-3 rounded-lg border border-border p-5 sm:flex-row sm:items-end"
+            class="grid grid-cols-1 gap-x-3 gap-y-3 rounded-lg border border-border p-5 sm:grid-cols-[1fr_auto] sm:grid-rows-[auto_auto_auto] sm:gap-y-2"
             @submit.prevent="submit"
         >
-            <div class="flex-1 space-y-2">
+            <div class="grid gap-2 sm:row-span-3 sm:grid-rows-subgrid">
                 <Label for="hostname">New scan host</Label>
                 <Input
                     id="hostname"
@@ -121,7 +121,12 @@ function revoke(host: ScanHostRow) {
                 />
                 <InputError :message="form.errors.hostname" />
             </div>
-            <Button type="submit" :disabled="form.processing">
+
+            <Button
+                type="submit"
+                :disabled="form.processing"
+                class="sm:col-start-2 sm:row-start-2"
+            >
                 Generate token
             </Button>
         </form>

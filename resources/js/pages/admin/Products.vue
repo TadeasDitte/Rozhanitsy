@@ -91,10 +91,10 @@ function remove(product: ProductRow) {
         />
 
         <form
-            class="grid gap-3 rounded-lg border border-border p-5 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end"
+            class="grid grid-cols-1 gap-x-3 gap-y-3 rounded-lg border border-border p-5 sm:grid-cols-[1fr_1fr_1fr_auto] sm:grid-rows-[auto_auto_auto] sm:gap-y-2"
             @submit.prevent="submit"
         >
-            <div class="space-y-2">
+            <div class="grid gap-2 sm:row-span-3 sm:grid-rows-subgrid">
                 <Label for="vendor_name">Vendor</Label>
                 <Input
                     id="vendor_name"
@@ -104,7 +104,8 @@ function remove(product: ProductRow) {
                 />
                 <InputError :message="form.errors.vendor_name" />
             </div>
-            <div class="space-y-2">
+
+            <div class="grid gap-2 sm:row-span-3 sm:grid-rows-subgrid">
                 <Label for="product_name">Product</Label>
                 <Input
                     id="product_name"
@@ -114,10 +115,11 @@ function remove(product: ProductRow) {
                 />
                 <InputError :message="form.errors.product_name" />
             </div>
-            <div class="space-y-2">
+
+            <div class="grid gap-2 sm:row-span-3 sm:grid-rows-subgrid">
                 <Label for="type">Type</Label>
                 <Select v-model="form.type">
-                    <SelectTrigger id="type">
+                    <SelectTrigger id="type" class="w-full">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -132,9 +134,14 @@ function remove(product: ProductRow) {
                 </Select>
                 <InputError :message="form.errors.type" />
             </div>
-            <Button type="submit" :disabled="form.processing"
-                >Add product</Button
+
+            <Button
+                type="submit"
+                :disabled="form.processing"
+                class="sm:col-start-4 sm:row-start-2"
             >
+                Add product
+            </Button>
         </form>
 
         <div class="space-y-4">
