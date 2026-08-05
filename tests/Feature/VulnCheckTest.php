@@ -217,6 +217,47 @@ test('a scan log row is written for every request', function () {
         ->and($log->scanned_at)->not->toBeNull();
 });
 
+test('a successful check stamps the host as last seen', function () {
+    $host = ScanHost::factory()->create();
+
+    expect($host->last_seen_at)->toBeNull();
+
+    postCheck([
+        'components' => [['vendor' => 'unknown', 'product' => 'mystery', 'version' => '1.0.0']],
+    ], $host)->assertOk();
+
+    expect($host->fresh()->last_seen_at)->not->toBeNull();
+});
+
+/**
+ * The stamp lives on the host rather than the token so that regenerating a
+ * token — which deletes the row Sanctum writes `last_used_at` to — does not
+ * reset the host back to "Never".
+ */
+test('the last seen stamp survives a token regeneration', function () {
+    $host = ScanHost::factory()->create();
+
+    postCheck([
+        'components' => [['vendor' => 'unknown', 'product' => 'mystery', 'version' => '1.0.0']],
+    ], $host)->assertOk();
+
+    $seenAt = $host->fresh()->last_seen_at;
+
+    $host->tokens()->delete();
+
+    expect($host->fresh()->last_seen_at?->timestamp)->toBe($seenAt?->timestamp);
+});
+
+test('an unauthenticated request does not stamp any host', function () {
+    $host = ScanHost::factory()->create();
+
+    $this->postJson(route('api.vulns.check'), [
+        'components' => [['vendor' => 'acme', 'product' => 'widget', 'version' => '1.0.0']],
+    ])->assertUnauthorized();
+
+    expect($host->fresh()->last_seen_at)->toBeNull();
+});
+
 test('a scan log records a null tenant for standalone installs', function () {
     postCheck([
         'components' => [['vendor' => 'unknown', 'product' => 'mystery', 'version' => '1.0.0']],
