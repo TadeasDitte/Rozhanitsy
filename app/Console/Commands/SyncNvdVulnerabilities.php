@@ -5,10 +5,13 @@ namespace App\Console\Commands;
 use App\Models\Source;
 use App\Models\SyncState;
 use App\Models\Vulnerability;
+use App\Services\NvdPageReader;
 use App\Services\VulnerabilityRangeBuilder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use JsonException;
+use RuntimeException;
 
 class SyncNvdVulnerabilities extends Command
 {
@@ -80,23 +83,30 @@ class SyncNvdVulnerabilities extends Command
                 return self::FAILURE;
             }
 
-            $data = $response->json();
-            $totalResults ??= (int) ($data['totalResults'] ?? 0);
-            $page = $data['vulnerabilities'] ?? [];
+            $reader = new NvdPageReader($response->toPsrResponse()->getBody());
+            $received = 0;
 
-            foreach ($page as $entry) {
-                $cve = $entry['cve'] ?? null;
+            try {
+                foreach ($reader->vulnerabilities() as $entry) {
+                    $received++;
 
-                if (! is_array($cve) || ! is_string($cve['id'] ?? null)) {
-                    $this->warn("Skipping malformed CVE entry near index {$startIndex}.");
+                    $cve = is_array($entry) ? ($entry['cve'] ?? null) : null;
 
-                    continue;
+                    if (! is_array($cve) || ! is_string($cve['id'] ?? null)) {
+                        $this->warn("Skipping malformed CVE entry near index {$startIndex}.");
+
+                        continue;
+                    }
+
+                    $this->processCve($cve, $source, $builder);
                 }
+            } catch (JsonException|RuntimeException $exception) {
+                $this->error("Unreadable NVD response at index {$startIndex}: {$exception->getMessage()}");
 
-                $this->processCve($cve, $source, $builder);
+                return self::FAILURE;
             }
 
-            $received = count($page);
+            $totalResults ??= $reader->totalResults();
 
             if ($received === 0) {
                 if ($startIndex < $totalResults) {
@@ -111,7 +121,7 @@ class SyncNvdVulnerabilities extends Command
             $startIndex += $received;
             $this->info("Processed {$startIndex} / {$totalResults}");
 
-            unset($response, $data, $page);
+            unset($response, $reader);
             gc_collect_cycles();
 
             if ($startIndex < $totalResults) {

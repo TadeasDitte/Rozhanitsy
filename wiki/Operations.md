@@ -6,7 +6,14 @@ hardware; the method is at the end of each section.
 ## First sync
 
 NVD currently holds 372,505 CVEs. Ingest rate measured at 175 CVEs/sec, 766
-ranges/sec, 64 MB peak process memory.
+ranges/sec.
+
+A page is consumed as a stream and decoded one CVE at a time, so `page_size`
+does not move peak memory — the largest single CVE does, and the heaviest
+observed (CVE-2017-5715, a Spectre entry with a very long CPE list) is ~170 KB
+of JSON. Decoding a whole page instead costs about seven times its wire size:
+a full 2000-CVE page is ~7 MB on the wire and peaks past 50 MB once decoded,
+which is why the reader exists.
 
 | Phase | With `NVD_API_KEY` | Without |
 | --- | --- | --- |
@@ -282,8 +289,9 @@ docker compose exec db psql -U rozhanitsy -c "ALTER USER rozhanitsy WITH PASSWOR
 
 ## Host sizing
 
-- 2 vCPU, 2 GB RAM, 20 GB disk is comfortable. The sync is the peak load and
-  peaks at 64 MB of PHP memory.
+- 2 vCPU, 2 GB RAM, 20 GB disk is comfortable. The sync is the peak load, and
+  it holds one CVE in memory at a time rather than a page, so its ceiling does
+  not follow `page_size`. The command caps itself at 256 MB regardless.
 - 1 vCPU / 1 GB works, but the first sync will take several hours.
 - Postgres and the app share a host by default. Split them out only when the
   scan API load justifies it; the endpoint is two indexed reads per request.

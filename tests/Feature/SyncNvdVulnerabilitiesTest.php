@@ -7,6 +7,7 @@ use App\Models\SyncState;
 use App\Models\Vendor;
 use App\Models\Vulnerability;
 use App\Models\VulnerabilityRange;
+use Database\Seeders\SourceSeeder;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -320,6 +321,43 @@ test('an unexpected empty page fails instead of reporting success', function () 
     $this->artisan('nvd:sync')->assertFailed();
 
     expect(SyncState::sole()->last_synced_at)->toBeNull();
+});
+
+/**
+ * The page is consumed as a stream, so a body that stops halfway is only
+ * discovered partway through. The run has to fail and leave the watermark
+ * alone, otherwise the next sync would skip the rest of the window.
+ */
+test('a truncated response body fails without advancing the watermark', function () {
+    Http::fake([
+        'services.nvd.nist.gov/*' => Http::response(
+            '{"totalResults":2,"vulnerabilities":[{"cve":{"id":"CVE-2026-1301","published":"2026-01-01T00:00:00.000"}},{"cve":{"id"',
+        ),
+    ]);
+
+    $this->artisan('nvd:sync')->assertFailed();
+
+    expect(SyncState::sole()->last_synced_at)->toBeNull();
+});
+
+test('a body that is not json at all fails cleanly', function () {
+    Http::fake([
+        'services.nvd.nist.gov/*' => Http::response('<html><body>502 Bad Gateway</body></html>'),
+    ]);
+
+    $this->artisan('nvd:sync')->assertFailed();
+
+    expect(SyncState::sole()->last_synced_at)->toBeNull();
+});
+
+/**
+ * 2000 is NVD's per-page maximum. It sat at 200 while a page was decoded in
+ * one go; the streaming reader is what lets it go back up.
+ */
+test('the seeded page size is the nvd maximum', function () {
+    $this->seed(SourceSeeder::class);
+
+    expect(Source::where('slug', 'nvd')->sole()->page_size)->toBe(2000);
 });
 
 test('cpe vendor and product are stored lowercased', function () {
