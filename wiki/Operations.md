@@ -176,8 +176,24 @@ wrong mapping left in that table is simply re-applied. `nvd:relink` is not a
 substitute — it only revisits rows that are already `unmatched`, and a wrongly
 attributed range is not one.
 
-Expect the rebuild to take a while (it rewrites every range for every CVE) and
-to be entirely local — no NVD requests, so no rate limit applies. Expect
+`nvd:rebuild-ranges` rewrites every range for every CVE, so run it detached
+rather than holding an `exec` session open for it:
+
+```bash
+docker compose exec -d app sh -c \
+  'php artisan nvd:rebuild-ranges > storage/logs/rebuild.log 2>&1'
+docker compose exec app tail -f storage/logs/rebuild.log
+```
+
+`exec -d` is enough on its own; `nohup` and `setsid` are also available in the
+image if you prefer them, and `bash` is installed for interactive sessions.
+Redirect somewhere under `storage/` — it is the only writable volume, and a
+bare `nohup` would otherwise drop `nohup.out` into the application root. A
+detached process still dies with the container, so re-check the log after any
+restart rather than assuming the run finished.
+
+Expect the rebuild to be entirely local — no NVD requests, so no rate limit
+applies. Expect
 findings to move in both directions afterwards: fewer, because misattributed
 editions stop reporting; more, because maintenance branches that were deleted
 come back and newly aliased CPE names start resolving. Ranges with no lower

@@ -36,6 +36,11 @@ FROM ${PHP_IMAGE} AS runtime
 
 RUN install-php-extensions pdo_pgsql intl zip pcntl opcache
 
+# For `docker compose exec` sessions: the base image ships only busybox ash.
+# nohup and setsid are already busybox applets, so detaching a long-running
+# maintenance command needs nothing beyond this.
+RUN apk add --no-cache bash
+
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY docker/opcache.ini "$PHP_INI_DIR/conf.d/zz-opcache.ini"
