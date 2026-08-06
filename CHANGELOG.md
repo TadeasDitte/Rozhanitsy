@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.3.0...v1.4.0) (2026-08-06)
+
+
+### Features
+
+* add sharding support to nvd:rebuild-ranges command and update CLI documentation ([d1048dd](https://github.com/TadeasDitte/Rozhanitsy/commit/d1048ddcf1bab65c91336f766075a387dedd5be2))
+* added bash to docker ([bd6d4e1](https://github.com/TadeasDitte/Rozhanitsy/commit/bd6d4e1ac5d56fa7b34611ed682d4cb2689f0a75))
+* implement NvdPageReader for streaming CVE data and update related tests and documentation ([e476300](https://github.com/TadeasDitte/Rozhanitsy/commit/e4763004f123f261f0d7c78aea774fa297baba55))
+
+
+### Refactoring
+
+* clean up PasskeyVerify component and improve layout in Login and ConfirmPassword pages ([af5effc](https://github.com/TadeasDitte/Rozhanitsy/commit/af5effcab961833d7ac8a534ea6887f58494e6e0))
+* formatting ([0bf43bb](https://github.com/TadeasDitte/Rozhanitsy/commit/0bf43bb017965635bdad712b4748fa683c8a7fa9))
+* pint ([3670abb](https://github.com/TadeasDitte/Rozhanitsy/commit/3670abbb196d4c73a8accc908b885c0d0c3c6fea))
+
 ## [1.3.0](https://github.com/TadeasDitte/Rozhanitsy/compare/v1.2.1...v1.3.0) (2026-08-05)
 
 
