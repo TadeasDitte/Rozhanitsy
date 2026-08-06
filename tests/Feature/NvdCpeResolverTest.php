@@ -119,3 +119,31 @@ test('repeated resolves of the same pair do not requery the database', function 
 
     expect($queries)->toBeEmpty();
 });
+
+
+test('an edition or variant is never fuzzy matched onto its base product', function (string $vendor, string $product, string $catalogVendor, string $catalogProduct) {
+    productNamed($catalogVendor, $catalogProduct);
+
+    $resolved = $this->resolver->resolve(cpe($vendor, $product));
+
+    expect($resolved['product_id'])->toBeNull()
+        ->and($resolved['confidence'])->toBe('unmatched')
+        ->and(CpeMap::count())->toBe(0);
+})->with([
+    'elementor pro' => ['elementor', 'elementor_pro', 'elementor', 'elementor'],
+    'wordpress mu' => ['wordpress', 'wordpress_mu', 'wordpress', 'wordpress'],
+    'the base name against a catalogued variant' => ['wordfence', 'wordfence', 'wordfence', 'wordfence-security'],
+]);
+
+test('a differently punctuated name is still fuzzy matched', function () {
+    $product = productNamed('automattic', 'woocommerce');
+
+    expect($this->resolver->resolve(cpe('automattic', 'woo-commerce'))['product_id'])->toBe($product->id);
+});
+
+test('a vetoed candidate does not stop another product from matching', function () {
+    $free = productNamed('elementor', 'elementor');
+    $pro = Product::factory()->for($free->vendor)->create(['name' => 'elementor-pro', 'slug' => 'elementor-pro']);
+
+    expect($this->resolver->resolve(cpe('elementor', 'elementor_pro'))['product_id'])->toBe($pro->id);
+});

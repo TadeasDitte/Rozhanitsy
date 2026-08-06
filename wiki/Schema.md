@@ -21,7 +21,7 @@ unmatched_lookups (standalone)
 | `products` | `id, vendor_id, name, slug, type` |
 | `cpe_map` | `id, cpe_vendor, cpe_product, product_id, match_type` |
 | `vulnerabilities` | `id, cve_id, cvss_score, cvss_vector, cvss_version, cvss_severity, description, published_at, last_modified_at, source_id, raw_data, ghsa_checked_at, ghsa_ecosystem_mismatch` |
-| `vulnerability_ranges` | `id, vulnerability_id, product_id, match_confidence, group_index, clause_index, version_start, version_start_incl, version_end, version_end_incl, raw_cpe, version_start_missing_since` |
+| `vulnerability_ranges` | `id, vulnerability_id, product_id, match_confidence, group_index, clause_index, version_start, version_start_incl, version_end, version_end_incl, raw_cpe, match_criteria_id, version_start_missing_since` |
 | `scan_hosts` | `id, user_id, hostname, is_active, last_seen_at` |
 | `scan_logs` | `id, scan_host_id, tenant_id, component_count, vulnerable_count, unmatched_count, scanned_at` |
 | `unmatched_lookups` | `id, cpe_vendor, cpe_product, hit_count, first_seen_at, last_seen_at` |
@@ -87,10 +87,35 @@ Bridges NVD's CPE vendor/product naming to local products. Unique on
 `(cpe_vendor, cpe_product)`, which also serves as the index for the live lookup.
 `match_type` records how the mapping was established, `exact` or `fuzzy`.
 
+A product's CVEs are often filed under a CPE name that is not the obvious one,
+and several names can legitimately feed one product — `elementor:elementor`,
+`elementor:elementor_page_builder` and `elementor:website_builder` are all the
+same free plugin. Those aliases have to be added by hand; `cpe:variants` (see
+[cli.md](cli.md)) reports the unmapped names worth considering, because a
+product whose CVEs live under a name nothing maps to reports clean rather than
+reporting an error.
+
+The name that must never be aliased is a separately released edition.
+`elementor:elementor_pro` and `wordpress:wordpress_mu` are their own products
+on their own version lines, and a version number from the base product tells
+you nothing about them. `NvdCpeResolver` refuses to fuzzy match a name that is
+another plus a qualifying word for exactly this reason (see
+[CPE resolution](#cpe-resolution)); mapping one here would override that
+refusal.
+
 ### vulnerability_ranges
 
 One row per `cpeMatch` entry in a CVE. `match_confidence` is `exact`, `fuzzy`, or
-`unmatched`. `raw_cpe` keeps the original CPE string.
+`unmatched`. `raw_cpe` keeps the original CPE string, and `match_criteria_id`
+NVD's own identifier for that entry.
+
+`raw_cpe` does not identify a range and must never be treated as if it did. The
+standard NVD shape for "affected in each of these maintenance branches" repeats
+one identical CPE string across every branch, separating them only by their
+bounds: CVE-2022-21661 carries 22 rows of
+`cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*`, one per WordPress branch from
+3.7 to 5.8. `match_criteria_id` is what tells them apart — see the upsert
+identity below.
 
 A CVE that names a concrete version in the CPE with no range keys is stored as
 an inclusive point range (`version_start = version_end`), not as an unbounded
@@ -131,8 +156,8 @@ unique on the pair. Written with a single batched upsert that increments
    `cpeMatch` and assigning `group_index`/`clause_index` per the rules in
    [vulnerability_ranges](#vulnerability_ranges).
 
-Rebuilding is an upsert by `(group_index, clause_index, raw_cpe)`, not a blind
-delete-then-recreate: a row whose identity still appears in the new
+Rebuilding is an upsert by `(group_index, clause_index, matchCriteriaId)`, not a
+blind delete-then-recreate: a row whose identity still appears in the new
 `configurations` is updated in place, and only rows whose identity no longer
 appears are deleted. This makes a re-sync idempotent the same way delete-and-
 recreate would, but it also lets `created_at` and
@@ -140,6 +165,21 @@ recreate would, but it also lets `created_at` and
 across resyncs — both would reset to "now" on every sync under a delete-and-
 recreate strategy, which would defeat the stability guard entirely (every
 sync would look like the shape was just observed for the first time).
+
+The identity has to be NVD's `matchCriteriaId`, which is stable across resyncs
+and unique within a CVE. Keying on `(group_index, clause_index, raw_cpe)`
+instead collapsed every maintenance branch of a repeated CPE onto one row and
+deleted the rest on the next rebuild — CVE-2022-21661 kept 1 of its 22
+WordPress branches, so installs on every branch but the newest silently
+stopped matching a CVE they have.
+
+A `cpeMatch` with no `matchCriteriaId` (older cached `raw_data`, hand-built
+fixtures) falls back to the CPE string plus its bounds, which keeps branches
+apart just as well; it only gives up recognising a row across an NVD edit to
+those bounds, which starts the range over as a new row. The same fallback is
+what lets rows written before this column existed be adopted in place on the
+first rebuild rather than recreated — recreating them would restart every
+stability clock at once.
 
 `VulnerabilityRangeBuilder` is the only thing that parses `configurations` —
 `nvd:sync` and `nvd:rebuild-ranges` (see [cli.md](cli.md)) both call it, one
@@ -170,8 +210,8 @@ for 14 days (`VulnerabilityRangeBuilder::GRACE_PERIOD_DAYS`). Until then,
 The shape resetting is the self-healing part: the moment NVD fills in a real
 start bound, or the end bound changes, `version_start_missing_since` resets to
 `now()` on the next sync (see the upsert identity above — same
-`raw_cpe`/`group_index`/`clause_index`, different `version_start`/`version_end`,
-counts as a shape change). A genuinely floor-less range keeps re-confirming
+`matchCriteriaId`, different `version_start`/`version_end`, counts as a shape
+change). A genuinely floor-less range keeps re-confirming
 the same shape every sync and graduates permanently once 14 days pass; a
 transient one corrects itself as soon as NVD does.
 
@@ -213,19 +253,40 @@ skipped forever.
 
 1. Parse vendor and product from the CPE string, lowercase them.
 2. Exact lookup in `cpe_map`. On hit, return the stored `match_type`.
-3. On miss, score every product with `similar_text` — vendor weighted 0.4,
-   product 0.6 — and take the best above 0.87.
-4. Write a fuzzy match back to `cpe_map` so later lookups are exact.
-5. No match: `product_id = null`, `match_confidence = unmatched`.
+3. On miss, discard every candidate whose name is the CPE's name plus or minus
+   a qualifying word (see the edition veto below).
+4. Score what remains with `similar_text` — vendor weighted 0.4, product 0.6 —
+   and take the best above 0.87.
+5. Write a fuzzy match back to `cpe_map` so later lookups are exact.
+6. No match: `product_id = null`, `match_confidence = unmatched`.
 
 A pair learned by fuzzy matching keeps `match_type = fuzzy` permanently, so a
 re-sync cannot promote a guess to a certainty.
 
-The threshold is not conservative. An identical vendor needs only about 78%
-product similarity to cross it, so `elementor-pro` scores 0.891 against
-`elementor` and `wordpress-mu` scores 0.914 against `wordpress`. Both are
-distinct products with distinct CVE sets. Learned mappings are persisted and not
-re-evaluated, so a wrong match stays until deleted from `cpe_map` by hand.
+### The edition veto
+
+The threshold alone is not conservative. An identical vendor needs only about
+78% product similarity to cross it, so `elementor-pro` scores 0.891 against
+`elementor` and `wordpress-mu` scores 0.914 against `wordpress` — and both were
+learned as fuzzy matches, attributing 7 Elementor Pro CVEs to 1,170 installs of
+the free plugin and a WordPress MU CVE to WordPress core.
+
+Similarity cannot see this, because the shared prefix is most of the string.
+The veto is structural instead: if one name's words are the other's plus at
+least one more, the two are treated as different products and never scored.
+NVD uses that shape for an edition or variant that ships separately on its own
+version line, so a version number from one says nothing about the other.
+
+The comparison is on whole words rather than substrings, which is what keeps
+the near misses fuzzy matching exists for — `woo-commerce` and `woocommerce`
+share no whole word, so neither contains the other and the pair still scores
+normally.
+
+A vetoed pair stays `unmatched` until a human maps it. `cpe:variants` lists
+what is currently unclaimed; `cpe:prune-variants` deletes learned mappings that
+the current policy would refuse, since a stored `fuzzy` row is served by the
+exact lookup at step 2 and would otherwise outlive the policy that made it.
+Both are in [cli.md](cli.md).
 
 Resolution only runs from `nvd:sync` (or `nvd:rebuild-ranges`), on the CPE
 strings in whatever CVEs that run touches. Adding a product after a range was

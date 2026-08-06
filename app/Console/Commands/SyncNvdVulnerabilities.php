@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Source;
 use App\Models\SyncState;
 use App\Models\Vulnerability;
+use App\Services\NvdCveMapper;
 use App\Services\NvdPageReader;
 use App\Services\VulnerabilityRangeBuilder;
 use Illuminate\Console\Command;
@@ -23,7 +24,7 @@ class SyncNvdVulnerabilities extends Command
 
     private const RETRY_BACKOFF_MILLISECONDS = [2_000, 5_000];
 
-    public function handle(VulnerabilityRangeBuilder $builder): int
+    public function handle(VulnerabilityRangeBuilder $builder, NvdCveMapper $mapper): int
     {
         ini_set('memory_limit', '256M');
 
@@ -98,7 +99,7 @@ class SyncNvdVulnerabilities extends Command
                         continue;
                     }
 
-                    $this->processCve($cve, $source, $builder);
+                    $this->processCve($cve, $source, $builder, $mapper);
                 }
             } catch (JsonException|RuntimeException $exception) {
                 $this->error("Unreadable NVD response at index {$startIndex}: {$exception->getMessage()}");
@@ -139,67 +140,15 @@ class SyncNvdVulnerabilities extends Command
     /**
      * @param  array<string, mixed>  $cve
      */
-    private function processCve(array $cve, Source $source, VulnerabilityRangeBuilder $builder): void
+    private function processCve(array $cve, Source $source, VulnerabilityRangeBuilder $builder, NvdCveMapper $mapper): void
     {
-        DB::transaction(function () use ($cve, $source, $builder): void {
+        DB::transaction(function () use ($cve, $source, $builder, $mapper): void {
             $vulnerability = Vulnerability::updateOrCreate(
                 ['cve_id' => $cve['id']],
-                [
-                    'source_id' => $source->id,
-                    'description' => $this->extractEnglishDescription($cve),
-                    'cvss_score' => $this->extractCvss($cve, 'baseScore'),
-                    'cvss_vector' => $this->extractCvss($cve, 'vectorString'),
-                    'cvss_version' => $this->extractCvss($cve, 'version'),
-                    'cvss_severity' => $this->extractCvss($cve, 'baseSeverity'),
-                    'published_at' => $cve['published'] ?? null,
-                    'last_modified_at' => $cve['lastModified'] ?? null,
-                    'raw_data' => $cve,
-                ]
+                ['source_id' => $source->id] + $mapper->attributes($cve),
             );
 
             $builder->build($vulnerability, $cve);
         });
-    }
-
-    /**
-     * @param  array<string, mixed>  $cve
-     */
-    private function extractEnglishDescription(array $cve): ?string
-    {
-        $descriptions = $cve['descriptions'] ?? [];
-
-        if (! is_array($descriptions)) {
-            return null;
-        }
-
-        foreach ($descriptions as $description) {
-            if (! is_array($description) || ($description['lang'] ?? null) !== 'en') {
-                continue;
-            }
-
-            return is_string($description['value'] ?? null) ? $description['value'] : null;
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $cve
-     */
-    private function extractCvss(array $cve, string $field): string|float|null
-    {
-        $metrics = $cve['metrics'] ?? [];
-
-        foreach (['cvssMetricV31', 'cvssMetricV30', 'cvssMetricV2'] as $key) {
-            if (empty($metrics[$key])) {
-                continue;
-            }
-
-            $entry = $metrics[$key][0];
-
-            return $entry['cvssData'][$field] ?? $entry[$field] ?? null;
-        }
-
-        return null;
     }
 }

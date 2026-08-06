@@ -48,6 +48,11 @@ class NvdCpeResolver
         return $this->resolvedCache[$key] = $this->lookup($vendor, $product);
     }
 
+    public function fuzzyCandidate(string $cpeVendor, string $cpeProduct): ?Product
+    {
+        return $this->fuzzyMatch(Str::lower($cpeVendor), Str::lower($cpeProduct));
+    }
+
     public function flush(): void
     {
         $this->productCache = null;
@@ -109,6 +114,10 @@ class NvdCpeResolver
         $bestScore = 0.0;
 
         foreach ($this->productCache as $candidate) {
+            if ($this->isQualifiedVariant($product, $candidate->slug)) {
+                continue;
+            }
+
             $vendorSimilarity = $this->similarity($vendor, $candidate->vendor->slug);
             $productSimilarity = $this->similarity($product, $candidate->slug);
             $score = ($vendorSimilarity * self::VENDOR_WEIGHT) + ($productSimilarity * self::PRODUCT_WEIGHT);
@@ -120,6 +129,30 @@ class NvdCpeResolver
         }
 
         return $bestScore >= self::FUZZY_THRESHOLD ? $best : null;
+    }
+
+
+    private function isQualifiedVariant(string $cpeProduct, string $productSlug): bool
+    {
+        $cpeWords = $this->words($cpeProduct);
+        $productWords = $this->words($productSlug);
+
+        if ($cpeWords === [] || $productWords === []) {
+            return false;
+        }
+
+        $cpeExtras = array_diff($cpeWords, $productWords);
+        $productExtras = array_diff($productWords, $cpeWords);
+
+        return ($cpeExtras === []) !== ($productExtras === []);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function words(string $name): array
+    {
+        return array_values(array_unique(array_filter(explode('-', Str::slug($name)))));
     }
 
     private function similarity(string $first, string $second): float

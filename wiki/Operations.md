@@ -155,6 +155,35 @@ docker compose exec -T db psql -U rozhanitsy -d restoretest -c 'SELECT count(*) 
 docker compose exec -T db dropdb -U rozhanitsy restoretest
 ```
 
+## One-time repair after the matching fixes
+
+The change that added `vulnerability_ranges.match_criteria_id` fixes how ranges
+are keyed, how CPE editions are matched, and which CVSS metric is read. All
+three are ingest-time decisions, so an existing database keeps its old results
+until they are re-derived. Migrating alone changes nothing.
+
+Run once, after the deploy:
+
+```bash
+docker compose exec app php artisan cpe:prune-variants --dry-run  # review first
+docker compose exec app php artisan cpe:prune-variants            # drop bad learned mappings
+docker compose exec app php artisan nvd:rebuild-ranges            # re-derive everything from raw_data
+docker compose exec app php artisan cpe:variants                  # what is still unclaimed
+```
+
+Order matters: `nvd:rebuild-ranges` re-resolves CPEs through `cpe_map`, so any
+wrong mapping left in that table is simply re-applied. `nvd:relink` is not a
+substitute — it only revisits rows that are already `unmatched`, and a wrongly
+attributed range is not one.
+
+Expect the rebuild to take a while (it rewrites every range for every CVE) and
+to be entirely local — no NVD requests, so no rate limit applies. Expect
+findings to move in both directions afterwards: fewer, because misattributed
+editions stop reporting; more, because maintenance branches that were deleted
+come back and newly aliased CPE names start resolving. Ranges with no lower
+bound come back held under the [stability
+guard](schema.md#stability-guard) and go live once it elapses.
+
 ## Migrations
 
 The entrypoint runs `migrate --force` on every `app` container start. A deploy
@@ -246,10 +275,17 @@ instance will fill the disk:
 ```bash
 docker compose exec app php artisan nvd:unmatched --min-hits=5   # coverage gaps worth mapping
 docker compose exec app php artisan nvd:pending-review           # ranges held back and why
-docker compose exec app php artisan cpe:collisions               # catalog entries worth a second look
+docker compose exec app php artisan cpe:collisions               # CPE names collapsed onto one product
+docker compose exec app php artisan cpe:variants                 # CVEs stranded under an unmapped CPE name
 docker compose exec app php artisan sanctum:prune-expired --hours=24
 docker compose exec app php artisan user:admin you@example.com   # regain admin access
 ```
+
+`cpe:collisions` and `cpe:variants` are the two halves of the same audit and
+are worth reading together: one finds products claiming CVEs that are not
+theirs, the other finds CVEs no product is claiming. Neither shows up in any
+error log — a product mapped to the wrong CPE name reports confidently, and a
+product mapped to no CPE name reports clean.
 
 Postgres autovacuum handles the churn from `nvd:sync` deleting and reinserting
 ranges. After the first full sync, one manual pass is worthwhile:

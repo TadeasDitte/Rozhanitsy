@@ -18,6 +18,7 @@ class VendorSeeder extends Seeder
         'Yoast',
         'Elementor',
         'Rocklobster',
+        'Wordfence',
         'Joomla',
         'Drupal',
         'PHP',

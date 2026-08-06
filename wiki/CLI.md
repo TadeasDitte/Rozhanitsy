@@ -37,7 +37,8 @@ php artisan nvd:sync --full
 ```
 
 The first run backfills the entire catalogue and takes hours. Ranges for a CVE
-are deleted and rebuilt on every sync, so re-running is idempotent.
+are rebuilt on every sync, upserted by NVD's own `matchCriteriaId` for each
+`cpeMatch`, so re-running is idempotent.
 
 Exit codes: 0 success, 1 missing/misconfigured source or a failed request.
 
@@ -150,12 +151,16 @@ waiting on the next sync.
 php artisan nvd:rebuild-ranges
 ```
 
-Rebuilds `vulnerability_ranges` for every `Vulnerability`, from its own stored
-`raw_data` — the full CVE JSON kept at ingest time — via the same
-`VulnerabilityRangeBuilder` `nvd:sync` uses. Pure database work, no NVD
-request, and it re-resolves CPEs against the current catalog as a side effect,
-so it supersedes `nvd:relink`: running both after the same event is redundant,
-run this one.
+Rebuilds `vulnerability_ranges` for every `Vulnerability`, and re-derives its
+CVSS columns and description, from its own stored `raw_data` — the full CVE
+JSON kept at ingest time — via the same `VulnerabilityRangeBuilder` and
+`NvdCveMapper` `nvd:sync` uses. Pure database work, no NVD request, and it
+re-resolves CPEs against the current catalog as a side effect, so it supersedes
+`nvd:relink`: running both after the same event is redundant, run this one.
+
+Everything except `raw_data` is derived from it, which is what makes this the
+repair path for any defect in how a CVE is read — a range keyed wrongly, a CPE
+mapped wrongly, a CVSS metric chosen wrongly — without a multi-hour resync.
 
 This exists for schema/parsing changes, not routine use — a change to how a
 CVE's `configurations` gets turned into ranges (e.g. the `group_index`/
@@ -176,7 +181,7 @@ php artisan nvd:rebuild-ranges
 Rebuilt 2000 vulnerabilities.
 Rebuilt 4000 vulnerabilities.
 ...
-Done. Rebuilt ranges for 372520 vulnerabilities.
+Done. Rebuilt ranges and scores for 372520 vulnerabilities.
 ```
 
 ## nvd:cross-check-core
@@ -273,6 +278,83 @@ php artisan cpe:collisions
 
 Not every row above is wrong — some are legitimately-merged name variants. Verify each product_id genuinely represents one independently-versioned thing before treating it as a bug.
 ```
+
+## cpe:variants
+
+```
+php artisan cpe:variants [--limit=25]
+```
+
+The opposite audit to `cpe:collisions`. That one finds CPE names wrongly
+collapsed onto one product; this one finds CVEs stranded under a CPE name no
+product claims, which is invisible from the outside — the product simply
+reports clean.
+
+Scans unresolved `vulnerability_ranges` and reports any whose CPE shares a
+vendor with something catalogued, or whose name is a catalogued product's name
+give or take a qualifying word, ranked by how many CVEs a mapping would unlock.
+
+Both failures were live on Elementor at once: CVEs for the paid edition were
+being attributed to the free plugin, while the free plugin's own 41 CVEs sat
+unread under `elementor:website_builder`.
+
+```bash
+php artisan cpe:variants
+php artisan cpe:variants --limit=50
+```
+
+```
++------------+-----------------+------+-------------------------+
+| CPE Vendor | CPE Product     | CVEs | Nearest Catalog Product |
++------------+-----------------+------+-------------------------+
+| elementor  | website_builder | 41   | Elementor / Elementor   |
+| elementor  | elementor_pro   | 7    | Elementor / Elementor   |
++------------+-----------------+------+-------------------------+
+```
+
+A row is a candidate for `CpeMapSeeder`, not an error. Verify it against NVD
+first: `website_builder` is the free plugin's own CVE feed and belongs there,
+`elementor_pro` is a separately sold product and must stay on this list
+forever. Mapping it would attribute Pro's vulnerabilities to every free
+install.
+
+## cpe:prune-variants
+
+```
+php artisan cpe:prune-variants [--dry-run]
+```
+
+Deletes `cpe_map` rows with `match_type = fuzzy` that the resolver would no
+longer learn today. Rows with `match_type = exact` — seeded pairs and human
+decisions — are never touched.
+
+This exists because fuzzy matching writes its guesses back into `cpe_map`, and
+an exact lookup on that table beats fuzzy matching on every later resolve. A
+mapping learned under a looser policy therefore keeps being served long after
+the policy is tightened, and no amount of syncing dislodges it.
+
+```bash
+php artisan cpe:prune-variants --dry-run
+php artisan cpe:prune-variants
+```
+
+```
++------------+---------------+---------------+-----------------+
+| CPE Vendor | CPE Product   | Was Mapped To | Would Now Match |
++------------+---------------+---------------+-----------------+
+| elementor  | elementor_pro | Elementor     | no match        |
+| wordpress  | wordpress_mu  | WordPress     | no match        |
++------------+---------------+---------------+-----------------+
+
+Removed 2 learned mapping(s).
+
+Stored ranges still point at the old products. Run nvd:rebuild-ranges to re-resolve them.
+```
+
+Deleting the mapping is only half the repair: existing `vulnerability_ranges`
+still carry the `product_id` it produced, and the live check reads those, not
+`cpe_map`. `nvd:relink` will not help — it only touches rows that are already
+unmatched. Follow with `nvd:rebuild-ranges`.
 
 ## scan-host:create
 

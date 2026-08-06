@@ -33,6 +33,9 @@ class ProductSeeder extends Seeder
         'rocklobster' => [
             ['Contact Form 7', 'plugin'],
         ],
+        'wordfence' => [
+            ['Wordfence', 'plugin'],
+        ],
         'joomla' => [
             ['Joomla', 'core'],
             ['JCE', 'plugin'],

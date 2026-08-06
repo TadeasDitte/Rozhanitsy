@@ -1,0 +1,1294 @@
+{
+ "resultsPerPage": 5,
+ "startIndex": 0,
+ "totalResults": 5,
+ "format": "NVD_CVE",
+ "version": "2.0",
+ "vulnerabilities": [
+  {
+   "cve": {
+    "id": "CVE-2022-21661",
+    "sourceIdentifier": "security-advisories@github.com",
+    "published": "2022-01-06T23:15:07.933",
+    "lastModified": "2026-06-17T04:26:42.513",
+    "vulnStatus": "Analyzed",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "WordPress is a free and open-source content management system written in PHP and paired with a MariaDB database. Due to improper sanitization in WP_Query, there can be cases where SQL injection is possible through plugins or themes that use it in a certain way. This has been patched in WordPress version 5.8.3. Older affected versions are also fixed via security release, that go back till 3.7.37. We strongly recommend that you keep auto-updates enabled. There are no known workarounds for this vulnerability."
+     },
+     {
+      "lang": "es",
+      "value": "WordPress es un sistema de administraci\u00f3n de contenidos gratuito y de c\u00f3digo abierto escrito en PHP y emparejado con una base de datos MariaDB. Debido a un saneo inapropiado en WP_Query, puede haber casos en los que la inyecci\u00f3n SQL es posible mediante plugins o temas que lo usan de una manera determinada. Esto ha sido parcheado en WordPress versi\u00f3n 5.8.3. Las versiones m\u00e1s antiguas afectadas tambi\u00e9n han sido corregidas por medio de un security release, que remonta hasta la versi\u00f3n 3.7.37. Le recomendamos encarecidamente que mantenga habilitadas las actualizaciones autom\u00e1ticas. No se presentan medidas de mitigaci\u00f3n conocidas para esta vulnerabilidad."
+     }
+    ],
+    "affected": [
+     {
+      "source": "security-advisories@github.com",
+      "affectedData": [
+       {
+        "vendor": "WordPress",
+        "product": "wordpress-develop",
+        "versions": [
+         {
+          "version": "< 5.8.3",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV31": [
+      {
+       "source": "security-advisories@github.com",
+       "type": "Secondary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:H/A:H",
+        "baseScore": 8.0,
+        "baseSeverity": "HIGH",
+        "attackVector": "NETWORK",
+        "attackComplexity": "HIGH",
+        "privilegesRequired": "HIGH",
+        "userInteraction": "NONE",
+        "scope": "CHANGED",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "HIGH",
+        "availabilityImpact": "HIGH"
+       },
+       "exploitabilityScore": 1.3,
+       "impactScore": 6.0
+      },
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+        "baseScore": 7.5,
+        "baseSeverity": "HIGH",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "NONE",
+        "userInteraction": "NONE",
+        "scope": "UNCHANGED",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "NONE",
+        "availabilityImpact": "NONE"
+       },
+       "exploitabilityScore": 3.9,
+       "impactScore": 3.6
+      }
+     ],
+     "cvssMetricV2": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "2.0",
+        "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+        "baseScore": 5.0,
+        "accessVector": "NETWORK",
+        "accessComplexity": "LOW",
+        "authentication": "NONE",
+        "confidentialityImpact": "PARTIAL",
+        "integrityImpact": "NONE",
+        "availabilityImpact": "NONE"
+       },
+       "baseSeverity": "MEDIUM",
+       "exploitabilityScore": 10.0,
+       "impactScore": 2.9,
+       "acInsufInfo": false,
+       "obtainAllPrivilege": false,
+       "obtainUserPrivilege": false,
+       "obtainOtherPrivilege": false,
+       "userInteractionRequired": false
+      }
+     ],
+     "ssvcV203": [
+      {
+       "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+       "ssvcData": {
+        "timestamp": "2024-09-09T14:12:39.836888Z",
+        "id": "CVE-2022-21661",
+        "options": [
+         {
+          "exploitation": "poc"
+         },
+         {
+          "automatable": "no"
+         },
+         {
+          "technicalImpact": "total"
+         }
+        ],
+        "role": "CISA Coordinator",
+        "version": "2.0.3"
+       }
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "security-advisories@github.com",
+      "type": "Secondary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-89"
+       }
+      ]
+     },
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-89"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "3.7",
+          "versionEndExcluding": "3.7.37",
+          "matchCriteriaId": "EAB58E59-7120-448E-88C9-FD13D1470360"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "3.8",
+          "versionEndExcluding": "3.8.37",
+          "matchCriteriaId": "1B2CE8B3-62E6-486D-8D9F-26EB32B30BB8"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "3.9",
+          "versionEndExcluding": "3.9.35",
+          "matchCriteriaId": "78C611CA-AC9B-4D6E-8CF4-A843E9361C40"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.0",
+          "versionEndExcluding": "4.0.34",
+          "matchCriteriaId": "4874DA41-6337-4BC8-80A7-AB7908675C1F"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.1",
+          "versionEndExcluding": "4.1.34",
+          "matchCriteriaId": "835EDE94-98FF-4050-A8E4-B84E40B076DB"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.2",
+          "versionEndExcluding": "4.2.31",
+          "matchCriteriaId": "90012040-14D1-4182-8975-8476544AB0B6"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.3",
+          "versionEndExcluding": "4.3.27",
+          "matchCriteriaId": "31454589-E626-4CB7-8F73-6A8CBD05CF49"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.4",
+          "versionEndExcluding": "4.4.26",
+          "matchCriteriaId": "EB0AEE06-DE08-4210-9BC0-3C330208ECAA"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.5",
+          "versionEndExcluding": "4.5.25",
+          "matchCriteriaId": "99162FA9-D13E-46E6-8B05-BA829E074E00"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.6",
+          "versionEndExcluding": "4.6.22",
+          "matchCriteriaId": "B7D8DE53-8A0A-46EC-90B7-839281CA1D99"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.7",
+          "versionEndExcluding": "4.7.22",
+          "matchCriteriaId": "B120102E-B528-4B73-8CA2-5DEB0733FB27"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.8",
+          "versionEndExcluding": "4.8.18",
+          "matchCriteriaId": "DC3D088C-F073-412A-A477-F5DF27E4242E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "4.9",
+          "versionEndExcluding": "4.9.19",
+          "matchCriteriaId": "EBD9028D-0E7D-46A3-8DC6-F931336AB712"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.0",
+          "versionEndExcluding": "5.0.15",
+          "matchCriteriaId": "61D939E4-C19F-4DFE-837F-2924986BB7EB"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.1",
+          "versionEndExcluding": "5.1.12",
+          "matchCriteriaId": "4ED53F25-4C47-43DB-99E4-EA370669C160"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.2",
+          "versionEndExcluding": "5.2.14",
+          "matchCriteriaId": "7D33A284-5838-4760-8646-9ED47B77E908"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.3",
+          "versionEndExcluding": "5.3.11",
+          "matchCriteriaId": "82BCBE33-3D79-49D2-8484-807A698C6D90"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.4",
+          "versionEndExcluding": "5.4.9",
+          "matchCriteriaId": "16402475-6207-4843-A37C-2029E12BBE2A"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.5",
+          "versionEndExcluding": "5.5.8",
+          "matchCriteriaId": "62BA1541-1BAB-4402-A96F-18CC71CECD35"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.6",
+          "versionEndExcluding": "5.6.7",
+          "matchCriteriaId": "919E29E8-7B6A-45AC-A0D3-C78F9F7D0ECD"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.7",
+          "versionEndExcluding": "5.7.5",
+          "matchCriteriaId": "56482037-5224-40FF-BF8B-9C52F40C03DB"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "5.8",
+          "versionEndExcluding": "5.8.3",
+          "matchCriteriaId": "1FE4C79C-1766-4F17-AF17-D5BD13BD1044"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:fedoraproject:fedora:34:*:*:*:*:*:*:*",
+          "matchCriteriaId": "A930E247-0B43-43CB-98FF-6CE7B8189835"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:fedoraproject:fedora:35:*:*:*:*:*:*:*",
+          "matchCriteriaId": "80E516C0-98A4-4ADE-B69F-66A772E2BAAA"
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:debian:debian_linux:9.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "DEECE5FC-CACF-4496-A3E7-164736409252"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:debian:debian_linux:10.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "07B237A9-69A3-4A9C-9DA0-4E06BD37AE73"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:o:debian:debian_linux:11.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "FA6FEEC2-9F11-4643-8827-749718254FED"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "references": [
+     {
+      "url": "http://packetstormsecurity.com/files/165540/WordPress-Core-5.8.2-SQL-Injection.html",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Exploit",
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     },
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/commit/17efac8c8ec64555eff5cf51a3eff81e06317214",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Patch",
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-6676-cqfm-gw84",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.debian.org/debian-lts-announce/2022/01/msg00019.html",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Mailing List",
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CV4UNEC63UU5GEU47IIR4RMTZAHNEOJG/",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/DM6XPH3JN6V4NF4WBOJTOXZIVE6VKKE3/",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://wordpress.org/news/2022/01/wordpress-5-8-3-security-release/",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Release Notes",
+       "Vendor Advisory"
+      ]
+     },
+     {
+      "url": "https://www.debian.org/security/2022/dsa-5039",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://www.exploit-db.com/exploits/50663",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Exploit",
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     },
+     {
+      "url": "https://www.zerodayinitiative.com/advisories/ZDI-22-020/",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     },
+     {
+      "url": "http://packetstormsecurity.com/files/165540/WordPress-Core-5.8.2-SQL-Injection.html",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Exploit",
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     },
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/commit/17efac8c8ec64555eff5cf51a3eff81e06317214",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Patch",
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-6676-cqfm-gw84",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.debian.org/debian-lts-announce/2022/01/msg00019.html",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Mailing List",
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/CV4UNEC63UU5GEU47IIR4RMTZAHNEOJG/",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/DM6XPH3JN6V4NF4WBOJTOXZIVE6VKKE3/",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://wordpress.org/news/2022/01/wordpress-5-8-3-security-release/",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Release Notes",
+       "Vendor Advisory"
+      ]
+     },
+     {
+      "url": "https://www.debian.org/security/2022/dsa-5039",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://www.exploit-db.com/exploits/50663",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Exploit",
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     },
+     {
+      "url": "https://www.vicarius.io/vsociety/posts/understanding-the-wordpress-sql-injection-vulnerability-cve-2022-21661",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Exploit",
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://www.zerodayinitiative.com/advisories/ZDI-22-020/",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory",
+       "VDB Entry"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "cve": {
+    "id": "CVE-2024-35656",
+    "sourceIdentifier": "audit@patchstack.com",
+    "published": "2024-07-22T10:15:03.727",
+    "lastModified": "2026-06-17T07:35:08.153",
+    "vulnStatus": "Modified",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "Improper Neutralization of Input During Web Page Generation (XSS or 'Cross-site Scripting') vulnerability in Elementor Elementor Pro allows Reflected XSS.This issue affects Elementor Pro: from n/a through 3.21.2."
+     },
+     {
+      "lang": "es",
+      "value": " Vulnerabilidad de neutralizaci\u00f3n incorrecta de la entrada durante la generaci\u00f3n de p\u00e1ginas web (XSS o 'Cross-site Scripting') en Elementor Elementor Pro permite el XSS reflejado. Este problema afecta a Elementor Pro: desde n/a hasta 3.21.2."
+     }
+    ],
+    "affected": [
+     {
+      "source": "audit@patchstack.com",
+      "affectedData": [
+       {
+        "vendor": "Elementor",
+        "product": "Elementor Pro",
+        "defaultStatus": "unaffected",
+        "versions": [
+         {
+          "version": "n/a",
+          "lessThanOrEqual": "3.21.2",
+          "versionType": "custom",
+          "status": "affected",
+          "changes": [
+           {
+            "at": "3.21.3",
+            "status": "unaffected"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV31": [
+      {
+       "source": "audit@patchstack.com",
+       "type": "Secondary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:L",
+        "baseScore": 7.1,
+        "baseSeverity": "HIGH",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "NONE",
+        "userInteraction": "REQUIRED",
+        "scope": "CHANGED",
+        "confidentialityImpact": "LOW",
+        "integrityImpact": "LOW",
+        "availabilityImpact": "LOW"
+       },
+       "exploitabilityScore": 2.8,
+       "impactScore": 3.7
+      },
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+        "baseScore": 6.1,
+        "baseSeverity": "MEDIUM",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "NONE",
+        "userInteraction": "REQUIRED",
+        "scope": "CHANGED",
+        "confidentialityImpact": "LOW",
+        "integrityImpact": "LOW",
+        "availabilityImpact": "NONE"
+       },
+       "exploitabilityScore": 2.8,
+       "impactScore": 2.7
+      }
+     ],
+     "ssvcV203": [
+      {
+       "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+       "ssvcData": {
+        "timestamp": "2024-07-23T13:22:59.016294Z",
+        "id": "CVE-2024-35656",
+        "options": [
+         {
+          "exploitation": "none"
+         },
+         {
+          "automatable": "no"
+         },
+         {
+          "technicalImpact": "partial"
+         }
+        ],
+        "role": "CISA Coordinator",
+        "version": "2.0.3"
+       }
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "audit@patchstack.com",
+      "type": "Secondary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-79"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:elementor:elementor_pro:*:*:*:*:*:wordpress:*:*",
+          "versionEndExcluding": "3.21.3",
+          "matchCriteriaId": "5F4E6866-4A8F-4382-8A82-2859FD8187CD"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "references": [
+     {
+      "url": "https://patchstack.com/database/vulnerability/elementor-pro/wordpress-elementor-pro-3-21-2-reflected-cross-site-scripting-xss-vulnerability?_s_id=cve",
+      "source": "audit@patchstack.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://patchstack.com/database/vulnerability/elementor-pro/wordpress-elementor-pro-3-21-2-reflected-cross-site-scripting-xss-vulnerability?_s_id=cve",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "cve": {
+    "id": "CVE-2009-1030",
+    "sourceIdentifier": "cve@mitre.org",
+    "published": "2009-03-20T00:30:00.703",
+    "lastModified": "2026-06-16T23:06:21.277",
+    "vulnStatus": "Modified",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "Cross-site scripting (XSS) vulnerability in the choose_primary_blog function in wp-includes/wpmu-functions.php in WordPress MU (WPMU) before 2.7 allows remote attackers to inject arbitrary web script or HTML via the HTTP Host header."
+     },
+     {
+      "lang": "es",
+      "value": "Vulnerabilidad de secuencias de comandos en sitios cruzados (XSS) en la funci\u00f3n choose_primary_blog en wp-includes/wpmu-functions.php en WordPress MU (WPMU) anterior a v2.7 permite a atacantes remotos inyectar secuencias de comandos web o HTML de su elecci\u00f3n a trav\u00e9s de la cabecera HTTP Host."
+     }
+    ],
+    "affected": [
+     {
+      "source": "cve@mitre.org",
+      "affectedData": [
+       {
+        "vendor": "n/a",
+        "product": "n/a",
+        "versions": [
+         {
+          "version": "n/a",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV2": [
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "2.0",
+        "vectorString": "AV:N/AC:M/Au:N/C:N/I:P/A:N",
+        "baseScore": 4.3,
+        "accessVector": "NETWORK",
+        "accessComplexity": "MEDIUM",
+        "authentication": "NONE",
+        "confidentialityImpact": "NONE",
+        "integrityImpact": "PARTIAL",
+        "availabilityImpact": "NONE"
+       },
+       "baseSeverity": "MEDIUM",
+       "exploitabilityScore": 8.6,
+       "impactScore": 2.9,
+       "acInsufInfo": false,
+       "obtainAllPrivilege": false,
+       "obtainUserPrivilege": false,
+       "obtainOtherPrivilege": false,
+       "userInteractionRequired": true
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-79"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:*:*:*:*:*:*:*:*",
+          "versionEndIncluding": "2.6",
+          "matchCriteriaId": "12FFA638-4919-4D9F-9F27-F421C9F25B69"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.0:*:*:*:*:*:*:*",
+          "matchCriteriaId": "8D40A30E-7BA2-4121-90D0-55EB5ACDBC4F"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.0:rc1:*:*:*:*:*:*",
+          "matchCriteriaId": "BE8F048D-8B9D-4A1A-85CF-E0240B672864"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.0:rc2:*:*:*:*:*:*",
+          "matchCriteriaId": "BCC5983D-8B24-408A-A2B0-3D9E8918734E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.0:rc3:*:*:*:*:*:*",
+          "matchCriteriaId": "7343BA05-4A07-49C3-B4D8-69F1DD308B49"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.0:rc4:*:*:*:*:*:*",
+          "matchCriteriaId": "49E5C0D7-E4FE-4A7C-9A20-D085DA63D434"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "2912D04D-A004-4842-8EF0-B51DAAA5FD46"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.1.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "A77286DE-D583-4359-8962-439583BE9BA1"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2:*:*:*:*:*:*:*",
+          "matchCriteriaId": "D5ED66D3-5D12-42CE-8B98-6A2984DAC7F9"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "CFB3E9E3-1341-4F34-B6D1-5DF9F3B1D1D2"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.2:*:*:*:*:*:*:*",
+          "matchCriteriaId": "B0EA81B6-0254-404D-8A2B-80C027383FCD"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.3:*:*:*:*:*:*:*",
+          "matchCriteriaId": "738C3727-FCA0-4C7B-B6D6-2FC14987706A"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.4:*:*:*:*:*:*:*",
+          "matchCriteriaId": "8149192C-167C-4459-8C20-355DE0FF2921"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.4:rc1:*:*:*:*:*:*",
+          "matchCriteriaId": "EBC1B2B1-C8EE-47A4-BE44-CAC1A6CD432E"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.2.5a:*:*:*:*:*:*:*",
+          "matchCriteriaId": "82E6D03D-0547-4CAB-A1CF-AEAC82634437"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.3:*:*:*:*:*:*:*",
+          "matchCriteriaId": "EF5136FA-5060-4448-9874-3DF375467ECD"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.3.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "7FB8E4A4-818E-4FDF-8C83-7C8FB5C83909"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.3.2:*:*:*:*:*:*:*",
+          "matchCriteriaId": "3F534621-ED5F-46D0-A893-D0C6DAACB0C1"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.3.3:*:*:*:*:*:*:*",
+          "matchCriteriaId": "F1930525-806B-49B1-A18E-189D41E5885C"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.5:rc1:*:*:*:*:*:*",
+          "matchCriteriaId": "330826FD-833C-4BB4-8293-2812956496B3"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:1.5.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "555E7E8A-3632-416B-889E-68E98AABE8CE"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:2.6.1:*:*:*:*:*:*:*",
+          "matchCriteriaId": "EAE70A19-919A-4478-B97B-EEF9FA29BECA"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:2.6.2:*:*:*:*:*:*:*",
+          "matchCriteriaId": "70524981-C0ED-4915-B0F3-A9F5D4865A34"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:2.6.3:*:*:*:*:*:*:*",
+          "matchCriteriaId": "6E9450D1-B817-4A38-A46F-05FCB6692A8D"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:2.6.5:*:*:*:*:*:*:*",
+          "matchCriteriaId": "3AA78384-3133-442A-B135-192440FB1745"
+         },
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress_mu:2.7:*:*:*:*:*:*:*",
+          "matchCriteriaId": "FBFF1FD7-49D4-4EF3-9A2F-49058AB00AE1"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "references": [
+     {
+      "url": "http://marc.info/?l=bugtraq&m=126996727024732&w=2",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "http://www.securityfocus.com/archive/1/501667/100/0/threaded",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "http://www.securityfocus.com/bid/34075",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "http://www.securitytracker.com/id?1021838",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/49184",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "https://www.exploit-db.com/exploits/8196",
+      "source": "cve@mitre.org"
+     },
+     {
+      "url": "http://marc.info/?l=bugtraq&m=126996727024732&w=2",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     },
+     {
+      "url": "http://www.securityfocus.com/archive/1/501667/100/0/threaded",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     },
+     {
+      "url": "http://www.securityfocus.com/bid/34075",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     },
+     {
+      "url": "http://www.securitytracker.com/id?1021838",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     },
+     {
+      "url": "https://exchange.xforce.ibmcloud.com/vulnerabilities/49184",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     },
+     {
+      "url": "https://www.exploit-db.com/exploits/8196",
+      "source": "af854a3a-2127-422b-91ae-364da2661108"
+     }
+    ]
+   }
+  },
+  {
+   "cve": {
+    "id": "CVE-2024-31211",
+    "sourceIdentifier": "security-advisories@github.com",
+    "published": "2024-04-04T23:15:16.333",
+    "lastModified": "2026-06-17T07:27:59.430",
+    "vulnStatus": "Analyzed",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "WordPress is an open publishing platform for the Web. Unserialization of instances of the `WP_HTML_Token` class allows for code execution via its `__destruct()` magic method. This issue was fixed in WordPress 6.4.2 on December 6th, 2023. Versions prior to 6.4.0 are not affected."
+     },
+     {
+      "lang": "es",
+      "value": "WordPress es una plataforma de publicaci\u00f3n abierta para la Web. La deserializaci\u00f3n de instancias de la clase `WP_HTML_Token` permite la ejecuci\u00f3n de c\u00f3digo a trav\u00e9s de su m\u00e9todo m\u00e1gico `__destruct()`. Este problema se solucion\u00f3 en WordPress 6.4.2 el 6 de diciembre de 2023. Las versiones anteriores a la 6.4.0 no se ven afectadas."
+     }
+    ],
+    "affected": [
+     {
+      "source": "security-advisories@github.com",
+      "affectedData": [
+       {
+        "vendor": "WordPress",
+        "product": "wordpress-develop",
+        "versions": [
+         {
+          "version": ">= 6.4.0 < 6.4.2",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV31": [
+      {
+       "source": "security-advisories@github.com",
+       "type": "Secondary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:L/I:L/A:N",
+        "baseScore": 5.5,
+        "baseSeverity": "MEDIUM",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "HIGH",
+        "userInteraction": "NONE",
+        "scope": "CHANGED",
+        "confidentialityImpact": "LOW",
+        "integrityImpact": "LOW",
+        "availabilityImpact": "NONE"
+       },
+       "exploitabilityScore": 2.3,
+       "impactScore": 2.7
+      },
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "baseScore": 9.8,
+        "baseSeverity": "CRITICAL",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "NONE",
+        "userInteraction": "NONE",
+        "scope": "UNCHANGED",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "HIGH",
+        "availabilityImpact": "HIGH"
+       },
+       "exploitabilityScore": 3.9,
+       "impactScore": 5.9
+      }
+     ],
+     "ssvcV203": [
+      {
+       "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+       "ssvcData": {
+        "timestamp": "2024-04-05T14:00:20.723760Z",
+        "id": "CVE-2024-31211",
+        "options": [
+         {
+          "exploitation": "none"
+         },
+         {
+          "automatable": "no"
+         },
+         {
+          "technicalImpact": "partial"
+         }
+        ],
+        "role": "CISA Coordinator",
+        "version": "2.0.3"
+       }
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "security-advisories@github.com",
+      "type": "Secondary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-502"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*",
+          "versionStartIncluding": "6.4.0",
+          "versionEndExcluding": "6.4.2",
+          "matchCriteriaId": "A04CEB33-E49D-47F8-BABE-BDA9DB077709"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "references": [
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-m257-q4m5-j653",
+      "source": "security-advisories@github.com",
+      "tags": [
+       "Vendor Advisory"
+      ]
+     },
+     {
+      "url": "https://github.com/WordPress/wordpress-develop/security/advisories/GHSA-m257-q4m5-j653",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Vendor Advisory"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "cve": {
+    "id": "CVE-2024-24934",
+    "sourceIdentifier": "audit@patchstack.com",
+    "published": "2024-05-17T09:15:25.403",
+    "lastModified": "2026-06-17T07:15:15.403",
+    "vulnStatus": "Analyzed",
+    "cveTags": [],
+    "descriptions": [
+     {
+      "lang": "en",
+      "value": "Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal') vulnerability in Elementor Elementor Website Builder allows Manipulating Web Input to File System Calls.This issue affects Elementor Website Builder: from n/a through 3.19.0."
+     },
+     {
+      "lang": "es",
+      "value": "La limitaci\u00f3n incorrecta de un nombre de ruta a una vulnerabilidad de directorio restringido (\"Path Traversal\") en Elementor Elementor Website Builder permite manipular la entrada web en llamadas al sistema de archivos. Este problema afecta a Elementor Website Builder: desde n/a hasta 3.19.0."
+     }
+    ],
+    "affected": [
+     {
+      "source": "audit@patchstack.com",
+      "affectedData": [
+       {
+        "vendor": "Elementor",
+        "product": "Elementor Website Builder",
+        "defaultStatus": "unaffected",
+        "collectionURL": "https://wordpress.org/plugins",
+        "packageName": "elementor",
+        "versions": [
+         {
+          "version": "n/a",
+          "lessThanOrEqual": "3.19.0",
+          "versionType": "custom",
+          "status": "affected",
+          "changes": [
+           {
+            "at": "3.19.1",
+            "status": "unaffected"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "affectedData": [
+       {
+        "vendor": "elementor",
+        "product": "website_builder",
+        "defaultStatus": "unknown",
+        "cpes": [
+         "cpe:2.3:a:elementor:website_builder:*:*:*:*:*:*:*:*"
+        ],
+        "versions": [
+         {
+          "version": "0",
+          "lessThanOrEqual": "3.19.0",
+          "versionType": "custom",
+          "status": "affected"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "metrics": {
+     "cvssMetricV31": [
+      {
+       "source": "audit@patchstack.com",
+       "type": "Secondary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:C/C:H/I:H/A:H",
+        "baseScore": 8.5,
+        "baseSeverity": "HIGH",
+        "attackVector": "NETWORK",
+        "attackComplexity": "HIGH",
+        "privilegesRequired": "LOW",
+        "userInteraction": "NONE",
+        "scope": "CHANGED",
+        "confidentialityImpact": "HIGH",
+        "integrityImpact": "HIGH",
+        "availabilityImpact": "HIGH"
+       },
+       "exploitabilityScore": 1.8,
+       "impactScore": 6.0
+      },
+      {
+       "source": "nvd@nist.gov",
+       "type": "Primary",
+       "cvssData": {
+        "version": "3.1",
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+        "baseScore": 8.1,
+        "baseSeverity": "HIGH",
+        "attackVector": "NETWORK",
+        "attackComplexity": "LOW",
+        "privilegesRequired": "LOW",
+        "userInteraction": "NONE",
+        "scope": "UNCHANGED",
+        "confidentialityImpact": "NONE",
+        "integrityImpact": "HIGH",
+        "availabilityImpact": "HIGH"
+       },
+       "exploitabilityScore": 2.8,
+       "impactScore": 5.2
+      }
+     ],
+     "ssvcV203": [
+      {
+       "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+       "ssvcData": {
+        "timestamp": "2024-05-20T18:46:44.893643Z",
+        "id": "CVE-2024-24934",
+        "options": [
+         {
+          "exploitation": "none"
+         },
+         {
+          "automatable": "no"
+         },
+         {
+          "technicalImpact": "total"
+         }
+        ],
+        "role": "CISA Coordinator",
+        "version": "2.0.3"
+       }
+      }
+     ]
+    },
+    "weaknesses": [
+     {
+      "source": "audit@patchstack.com",
+      "type": "Secondary",
+      "description": [
+       {
+        "lang": "en",
+        "value": "CWE-22"
+       }
+      ]
+     }
+    ],
+    "configurations": [
+     {
+      "nodes": [
+       {
+        "operator": "OR",
+        "negate": false,
+        "cpeMatch": [
+         {
+          "vulnerable": true,
+          "criteria": "cpe:2.3:a:elementor:website_builder:*:*:*:*:free:wordpress:*:*",
+          "versionEndExcluding": "3.19.1",
+          "matchCriteriaId": "92ECA2B5-E1BA-4942-A0F7-E10AEF420817"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "references": [
+     {
+      "url": "https://patchstack.com/database/vulnerability/elementor/wordpress-elementor-plugin-3-19-0-arbitrary-file-deletion-and-phar-deserialization-vulnerability?_s_id=cve",
+      "source": "audit@patchstack.com",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     },
+     {
+      "url": "https://patchstack.com/database/vulnerability/elementor/wordpress-elementor-plugin-3-19-0-arbitrary-file-deletion-and-phar-deserialization-vulnerability?_s_id=cve",
+      "source": "af854a3a-2127-422b-91ae-364da2661108",
+      "tags": [
+       "Third Party Advisory"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

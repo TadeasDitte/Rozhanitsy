@@ -618,3 +618,53 @@ test('a negated node is skipped without affecting its siblings', function () {
     expect($range->raw_cpe)->toContain('widget')
         ->and($range->clause_index)->toBe(0);
 });
+
+test('resyncing a cve keeps every maintenance branch of a repeated cpe', function () {
+    $criteria = 'cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*';
+
+    fakeNvd([cveEntry('CVE-2026-7001', [
+        cpeMatch($criteria, ['versionStartIncluding' => '4.9', 'versionEndExcluding' => '4.9.19', 'matchCriteriaId' => 'A1']),
+        cpeMatch($criteria, ['versionStartIncluding' => '5.0', 'versionEndExcluding' => '5.0.15', 'matchCriteriaId' => 'B2']),
+        cpeMatch($criteria, ['versionStartIncluding' => '5.8', 'versionEndExcluding' => '5.8.3', 'matchCriteriaId' => 'C3']),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(VulnerabilityRange::count())->toBe(3)
+        ->and(VulnerabilityRange::orderBy('version_start')->pluck('version_start')->all())->toBe(['4.9', '5.0', '5.8'])
+        ->and(VulnerabilityRange::orderBy('version_start')->pluck('match_criteria_id')->all())->toBe(['A1', 'B2', 'C3']);
+});
+
+test('branches of a repeated cpe survive a resync without a match criteria id', function () {
+    $criteria = 'cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*';
+
+    fakeNvd([cveEntry('CVE-2026-7002', [
+        cpeMatch($criteria, ['versionStartIncluding' => '4.9', 'versionEndExcluding' => '4.9.19']),
+        cpeMatch($criteria, ['versionStartIncluding' => '5.8', 'versionEndExcluding' => '5.8.3']),
+    ])]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    expect(VulnerabilityRange::count())->toBe(2)
+        ->and(VulnerabilityRange::orderBy('version_start')->pluck('version_start')->all())->toBe(['4.9', '5.8']);
+});
+
+test('it prefers the nvd primary cvss metric over a cna secondary', function () {
+    $entry = cveEntry('CVE-2026-7003');
+    $entry['cve']['metrics']['cvssMetricV31'] = [
+        ['type' => 'Secondary', 'cvssData' => ['baseScore' => 5.5, 'vectorString' => 'CVSS:3.1/CNA', 'version' => '3.1', 'baseSeverity' => 'MEDIUM']],
+        ['type' => 'Primary', 'cvssData' => ['baseScore' => 9.8, 'vectorString' => 'CVSS:3.1/NVD', 'version' => '3.1', 'baseSeverity' => 'CRITICAL']],
+    ];
+
+    fakeNvd([$entry]);
+
+    $this->artisan('nvd:sync')->assertSuccessful();
+
+    $vulnerability = Vulnerability::sole();
+
+    expect($vulnerability->cvss_score)->toBe(9.8)
+        ->and($vulnerability->cvss_vector)->toBe('CVSS:3.1/NVD')
+        ->and($vulnerability->cvss_severity)->toBe('CRITICAL');
+});

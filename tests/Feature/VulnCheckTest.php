@@ -719,3 +719,51 @@ test('an active scan host still authenticates', function () {
         ])
         ->assertOk();
 });
+
+test('an install on an older maintenance branch still matches', function () {
+    $product = mapCpe('wordpress', 'wordpress');
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2022-21661']);
+    $criteria = 'cpe:2.3:a:wordpress:wordpress:*:*:*:*:*:*:*:*';
+
+    foreach ([['4.9', '4.9.19', 'A1'], ['5.8', '5.8.3', 'B2']] as [$start, $end, $matchCriteriaId]) {
+        VulnerabilityRange::factory()
+            ->affecting($start, $end)
+            ->create([
+                'vulnerability_id' => $vulnerability->id,
+                'product_id' => $product->id,
+                'raw_cpe' => $criteria,
+                'match_criteria_id' => $matchCriteriaId,
+            ]);
+    }
+
+    $response = postCheck(['components' => [
+        ['vendor' => 'wordpress', 'product' => 'wordpress', 'version' => '4.9.3', 'local_id' => '/var/www/old'],
+        ['vendor' => 'wordpress', 'product' => 'wordpress', 'version' => '5.8.1', 'local_id' => '/var/www/new'],
+    ]]);
+
+    $response->assertOk();
+
+    expect(collect($response->json('vulnerable'))->pluck('local_id')->sort()->values()->all())
+        ->toBe(['/var/www/new', '/var/www/old']);
+});
+
+test('overlapping branches report a cve once per install', function () {
+    $product = mapCpe('wordpress', 'wordpress');
+    $vulnerability = Vulnerability::factory()->create(['cve_id' => 'CVE-2026-8001']);
+
+    foreach ([['4.0', '5.0', 'A1'], ['4.5', '5.5', 'B2']] as [$start, $end, $matchCriteriaId]) {
+        VulnerabilityRange::factory()
+            ->affecting($start, $end)
+            ->create([
+                'vulnerability_id' => $vulnerability->id,
+                'product_id' => $product->id,
+                'match_criteria_id' => $matchCriteriaId,
+            ]);
+    }
+
+    $response = postCheck(['components' => [
+        ['vendor' => 'wordpress', 'product' => 'wordpress', 'version' => '4.9.3'],
+    ]]);
+
+    $response->assertOk()->assertJsonCount(1, 'vulnerable');
+});
