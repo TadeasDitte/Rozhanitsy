@@ -145,7 +145,7 @@ class SyncNvdVulnerabilities extends Command
         DB::transaction(function () use ($cve, $source, $builder, $mapper): void {
             $vulnerability = Vulnerability::updateOrCreate(
                 ['cve_id' => $cve['id']],
-                ['source_id' => $source->id] + $mapper->attributes($cve),
+                ['source_id' => $source->id, 'raw_data' => $cve] + $mapper->attributes($cve),
             );
 
             $builder->build($vulnerability, $cve);

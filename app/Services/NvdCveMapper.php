@@ -25,7 +25,6 @@ class NvdCveMapper
             'cvss_severity' => $this->metricField($metric, 'baseSeverity'),
             'published_at' => $cve['published'] ?? null,
             'last_modified_at' => $cve['lastModified'] ?? null,
-            'raw_data' => $cve,
         ];
     }
 

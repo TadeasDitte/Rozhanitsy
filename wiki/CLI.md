@@ -173,7 +173,7 @@ waiting on the next sync.
 ## nvd:rebuild-ranges
 
 ```
-php artisan nvd:rebuild-ranges
+php artisan nvd:rebuild-ranges [--shard=index/total]
 ```
 
 Rebuilds `vulnerability_ranges` for every `Vulnerability`, and re-derives its
@@ -197,6 +197,33 @@ schema.md's [vulnerability_ranges](schema.md#vulnerability_ranges).
 Run it once, after a deploy that changes range-building logic. Not scheduled,
 not run by the entrypoint — rewrites the whole table, which is wasted work on
 every container restart when nothing changed.
+
+### Cost, and how to cut it
+
+Ranges are inserted one statement per CVE rather than one per range, existing
+rows are only written when something actually changed, and a chunk of CVEs
+commits as a single transaction. Measured on a 1,200-CVE / 13,440-range
+sample, a first rebuild went from 4,271 to 911 statements and 1.96s to 0.56s
+per 300 CVEs.
+
+What remains is CPU, not database: decoding `raw_data` and hydrating the
+existing ranges for each CVE. A repeat rebuild issues fewer statements than
+the first and still takes marginally longer, which is the tell.
+
+`--shard=index/total` therefore exists to split the catalog across concurrent
+processes, partitioned on `id % total` so no two shards touch the same CVE:
+
+```bash
+for i in 1 2 3 4; do
+  docker compose exec -d app sh -c \
+    "php artisan nvd:rebuild-ranges --shard=$i/4 > storage/logs/rebuild-$i.log 2>&1"
+done
+```
+
+Shards are safe to run together — verified to produce range-for-range
+identical output to a single process — but the speedup depends on the database
+accepting concurrent writers. Postgres does. Do not expect a gain against
+sqlite, which serializes them.
 
 ```bash
 php artisan nvd:rebuild-ranges

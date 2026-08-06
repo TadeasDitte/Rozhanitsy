@@ -83,13 +83,11 @@ class NvdCpeResolver
         if ($match === null) {
             return ['product_id' => null, 'confidence' => VulnerabilityRange::MATCH_UNMATCHED];
         }
-
-        CpeMap::create([
-            'cpe_vendor' => $vendor,
-            'cpe_product' => $product,
-            'product_id' => $match->id,
-            'match_type' => CpeMap::TYPE_FUZZY,
-        ]);
+        
+        CpeMap::createOrFirst(
+            ['cpe_vendor' => $vendor, 'cpe_product' => $product],
+            ['product_id' => $match->id, 'match_type' => CpeMap::TYPE_FUZZY],
+        );
 
         return ['product_id' => $match->id, 'confidence' => VulnerabilityRange::MATCH_FUZZY];
     }
