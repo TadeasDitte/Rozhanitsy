@@ -120,7 +120,6 @@ test('repeated resolves of the same pair do not requery the database', function 
     expect($queries)->toBeEmpty();
 });
 
-
 test('an edition or variant is never fuzzy matched onto its base product', function (string $vendor, string $product, string $catalogVendor, string $catalogProduct) {
     productNamed($catalogVendor, $catalogProduct);
 

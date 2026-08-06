@@ -131,7 +131,6 @@ class NvdCpeResolver
         return $bestScore >= self::FUZZY_THRESHOLD ? $best : null;
     }
 
-
     private function isQualifiedVariant(string $cpeProduct, string $productSlug): bool
     {
         $cpeWords = $this->words($cpeProduct);
