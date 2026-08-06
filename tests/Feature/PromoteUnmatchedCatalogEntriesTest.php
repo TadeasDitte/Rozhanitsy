@@ -112,3 +112,38 @@ test('promotion immediately relinks matching previously-unmatched vulnerability 
     expect($range->fresh()->product_id)->toBe($product->id)
         ->and($range->fresh()->match_confidence)->toBe(VulnerabilityRange::MATCH_EXACT);
 });
+
+test('one run promotes every qualifying pair', function () {
+    UnmatchedLookup::factory()->count(120)->sequence(
+        fn ($sequence) => ['cpe_vendor' => 'acme', 'cpe_product' => 'widget-'.$sequence->index, 'hit_count' => 10],
+    )->create();
+
+    $this->artisan('nvd:promote-unmatched --min-hits=10')->assertSuccessful();
+
+    expect(UnmatchedLookup::count())->toBe(0)
+        ->and(Product::count())->toBe(120);
+});
+
+test('an explicit --limit still caps a run', function () {
+    UnmatchedLookup::factory()->count(5)->sequence(
+        fn ($sequence) => ['cpe_vendor' => 'acme', 'cpe_product' => 'widget-'.$sequence->index, 'hit_count' => 10],
+    )->create();
+
+    $this->artisan('nvd:promote-unmatched --min-hits=10 --limit=2')->assertSuccessful();
+
+    expect(UnmatchedLookup::count())->toBe(3)
+        ->and(Product::count())->toBe(2);
+});
+
+test('a pair that cannot be promoted does not block the rest', function () {
+    $vendor = Vendor::factory()->create(['slug' => 'acme', 'name' => 'Acme']);
+    Product::factory()->for($vendor)->create(['slug' => 'widget', 'name' => 'Taken']);
+
+    UnmatchedLookup::factory()->create(['cpe_vendor' => 'acme', 'cpe_product' => 'Widget', 'hit_count' => 99]);
+    UnmatchedLookup::factory()->create(['cpe_vendor' => 'acme', 'cpe_product' => 'gadget', 'hit_count' => 10]);
+
+    $this->artisan('nvd:promote-unmatched --min-hits=5')->assertSuccessful();
+
+    expect(Product::where('slug', 'gadget')->exists())->toBeTrue()
+        ->and(UnmatchedLookup::where('cpe_product', 'gadget')->exists())->toBeFalse();
+});

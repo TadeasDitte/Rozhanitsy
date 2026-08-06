@@ -92,9 +92,17 @@ A pair that fails to promote (a name collision with an existing product, most
 likely) is skipped with a warning rather than aborting the run; it stays in
 `unmatched_lookups` and is retried on the next run.
 
+`--limit` defaults to `0`, meaning every pair at or above `--min-hits` in a
+single run. A non-zero cap is available but rarely wanted: it processes only
+the highest-hit pairs, so clearing a backlog takes as many invocations as the
+backlog divided by the cap. Worse, a pair that cannot be promoted keeps its
+hit count and so retakes the same top slots on the next run — enough of them
+and a capped run makes no progress at all.
+
 ```bash
 php artisan nvd:promote-unmatched
 php artisan nvd:promote-unmatched --min-hits=10 --type=library
+php artisan nvd:promote-unmatched --limit=25          # only the top 25
 php artisan nvd:promote-unmatched --dry-run
 ```
 
@@ -106,7 +114,7 @@ php artisan nvd:promote-unmatched --dry-run
 +------------+-------------+------+
 
 Promoted 1 pair(s).
-Relinked 3 vulnerability ranges.
+Relinked 3 of 1274000 unresolved vulnerability ranges.
 ```
 
 If anything was promoted, the command finishes by running `nvd:relink` so any
@@ -116,12 +124,21 @@ immediately, rather than waiting on the next `nvd:sync`.
 ## nvd:relink
 
 ```
-php artisan nvd:relink
+php artisan nvd:relink [--chunk=5000]
 ```
 
-Re-resolves `vulnerability_ranges` rows stuck at `match_confidence = unmatched`
-against the current `products` table, using each row's stored `raw_cpe`. Pure
-database work, no NVD request.
+Re-resolves `vulnerability_ranges` rows that never matched a product — those
+with a null `product_id` — against the current `products` table, using each
+row's stored `raw_cpe`. Pure database work, no NVD request.
+
+It deliberately does not touch an `unmatched` row that *does* have a product.
+Those are held back on purpose, by the [stability
+guard](schema.md#stability-guard) or a GHSA ecosystem mismatch, and relinking
+one would overrule that decision and graduate the range early. `nvd:pending-review`
+lists them.
+
+`--chunk` sets how many rows are read per batch; the default suits a full
+catalog and only needs lowering on a memory-constrained host.
 
 Exists because `nvd:sync` only resolves a CPE at ingest time — a product added
 to the catalog afterwards does not retroactively fix ranges that were already
@@ -138,8 +155,16 @@ php artisan nvd:relink
 ```
 
 ```
-Relinked 41823 vulnerability ranges.
+ 1274000/1274000 [============================] 100%
+
+Relinked 41823 of 1274000 unresolved vulnerability ranges.
 ```
+
+The progress bar matters because this runs at the end of
+`nvd:promote-unmatched`: the scan covers every unresolved range in the
+catalog, and an earlier version that read one row at a time, updated one row
+at a time, and printed nothing until it finished made that command look like
+it had hung.
 
 A successful fuzzy match also writes the `cpe_map` row, exactly as `nvd:sync`
 would, so the live `/api/vulns/check` path benefits immediately without

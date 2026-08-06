@@ -16,16 +16,18 @@ class PromoteUnmatchedCatalogEntries extends Command
 {
     protected $signature = 'nvd:promote-unmatched
         {--min-hits=5 : Minimum hit_count required to promote a pair}
-        {--limit=100 : Maximum pairs to process this run}
+        {--limit=0 : Maximum pairs to process this run, 0 for every qualifying pair}
         {--type=plugin : Product type assigned to promoted pairs}
         {--dry-run : Preview what would be promoted without writing}';
 
     protected $description = 'Promote frequently-seen unmatched vendor/product pairs into the product catalog (Vendor, Product, CpeMap), closing scan coverage gaps without manual admin entry';
 
+    private const MAX_LISTED = 25;
+
     public function handle(): int
     {
         $minHits = max(1, (int) $this->option('min-hits'));
-        $limit = max(1, (int) $this->option('limit'));
+        $limit = max(0, (int) $this->option('limit'));
         $type = $this->option('type');
         $dryRun = (bool) $this->option('dry-run');
 
@@ -38,7 +40,7 @@ class PromoteUnmatchedCatalogEntries extends Command
         $pairs = UnmatchedLookup::query()
             ->where('hit_count', '>=', $minHits)
             ->orderByDesc('hit_count')
-            ->limit($limit)
+            ->when($limit > 0, fn ($query) => $query->limit($limit))
             ->get();
 
         if ($pairs->isEmpty()) {
@@ -89,7 +91,11 @@ class PromoteUnmatchedCatalogEntries extends Command
         }
 
         if ($promoted !== []) {
-            $this->table(['CPE Vendor', 'CPE Product', 'Hits'], $promoted);
+            $this->table(['CPE Vendor', 'CPE Product', 'Hits'], array_slice($promoted, 0, self::MAX_LISTED));
+
+            if (count($promoted) > self::MAX_LISTED) {
+                $this->line('Listing the '.self::MAX_LISTED.' highest-hit pairs of '.count($promoted).'.');
+            }
         }
 
         $verb = $dryRun ? 'Would promote' : 'Promoted';
