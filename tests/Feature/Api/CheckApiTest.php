@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Alias;
+use App\Models\CnaProductName;
 use App\Models\ParsedRecord;
 use App\Models\VersionRange;
 
@@ -399,3 +400,36 @@ test('matches a Packagist package however its name is spelled', function (array 
     'advisory spelling' => [['product' => 'Studio-42/elFinder', 'ecosystem' => 'Packagist']],
     'no ecosystem' => [['product' => 'Studio-42/elFinder']],
 ]);
+
+test('matches the CNA ranges an analysed record ties to the vendor and product', function (string $cnaVendor, string $cnaProduct, string $vendor, string $product) {
+    VersionRange::factory()->create([
+        'vendor' => $cnaVendor, 'product' => $cnaProduct, 'version_incl_start' => null, 'version_incl_end' => '1.57.2', 'version_excl_end' => null, 'raw' => 'cna:{}',
+    ]);
+    CnaProductName::factory()->create(['cna_vendor' => $cnaVendor, 'cna_product' => $cnaProduct, 'vendor' => $vendor, 'product' => $product]);
+
+    $this->getJson(route('api.v1.check', ['vendor' => $vendor, 'product' => $product, 'version' => '1.11.4']))
+        ->assertJsonPath('data.vulnerability_count', 1);
+    $this->getJson(route('api.v1.check', ['vendor' => 'other_vendor', 'product' => $product, 'version' => '1.11.4']))
+        ->assertJsonPath('data.vulnerability_count', 0);
+})->with([
+    'another vendor' => ['wpmudev', 'forminator', 'incsub', 'forminator'],
+    'another slug' => ['gravityforms', 'gravity-forms', 'rocketgenius', 'gravityforms'],
+]);
+
+test('matches a vendorless CNA range by any vendor of the product', function () {
+    VersionRange::factory()->create([
+        'vendor' => null, 'product' => 'learnpress', 'version_incl_start' => null, 'version_excl_end' => '4.3.0', 'raw' => 'cna:{}',
+    ]);
+
+    $this->getJson(route('api.v1.check', ['vendor' => 'thimpress', 'product' => 'learnpress', 'version' => '4.2.7.3']))
+        ->assertJsonPath('data.vulnerability_count', 1);
+});
+
+test('does not match a vendorless CPE range when a vendor is given', function () {
+    VersionRange::factory()->create([
+        'vendor' => null, 'product' => 'learnpress', 'version_incl_start' => null, 'version_excl_end' => '4.3.0', 'raw' => 'cpe:2.3:a:*:learnpress:*:*:*:*:*:*:*:*',
+    ]);
+
+    $this->getJson(route('api.v1.check', ['vendor' => 'thimpress', 'product' => 'learnpress', 'version' => '4.2.7.3']))
+        ->assertJsonPath('data.vulnerability_count', 0);
+});

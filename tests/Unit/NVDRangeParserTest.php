@@ -1,6 +1,7 @@
 <?php
 
 use App\Ingestion\Parsers\NVDRangeParser;
+use App\Ingestion\ProductNameData;
 use App\Ingestion\VersionRangeData;
 
 /**
@@ -621,4 +622,69 @@ test('keeps a coarse CNA-only range of a backporting product as low confidence',
 })->with([
     'no lower bound' => [['version' => '*', 'lessThan' => '7.1.2'], 'cna -7.1.2 low'],
     'one branch' => [['version' => '7.0', 'lessThan' => '7.0.7'], 'cna 7.0-7.0.7'],
+]);
+
+/**
+ * A Patchstack style entry, "from n/a through 1.57.2".
+ *
+ * @param  array<string, mixed>  $entry
+ * @return array<string, mixed>
+ */
+function pluginCnaEntry(array $entry): array
+{
+    return [...$entry, 'versions' => [['version' => 'n/a', 'lessThanOrEqual' => '1.57.2', 'status' => 'affected']]];
+}
+
+/**
+ * @param  list<array<string, mixed>>  $cnaEntries
+ * @return list<array<string, mixed>>
+ */
+function pluginConfigWithCna(string $criteria, array $cnaEntries): array
+{
+    return [
+        ...nvdConfig([['criteria' => $criteria, 'vulnerable' => true, 'versionEndIncluding' => '1.57.2']]),
+        ['cna' => $cnaEntries],
+    ];
+}
+
+/**
+ * @param  list<ProductNameData>  $names
+ * @return list<array{?string, string, ?string, string}>
+ */
+function productNameSummaries(array $names): array
+{
+    return array_map(fn (ProductNameData $name): array => [$name->cnaVendor, $name->cnaProduct, $name->vendor, $name->product], $names);
+}
+
+test('ties the CNA names of a product to its CPE names', function (string $criteria, array $entry, array $expected) {
+    $names = (new NVDRangeParser)->productNames(pluginConfigWithCna($criteria, [pluginCnaEntry($entry)]));
+
+    expect(productNameSummaries($names))->toBe([$expected]);
+})->with([
+    'another vendor' => [
+        'cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*',
+        ['vendor' => 'WPMU DEV', 'product' => 'Forminator', 'packageName' => 'forminator'],
+        ['wpmudev', 'forminator', 'incsub', 'forminator'],
+    ],
+    'another slug' => [
+        'cpe:2.3:a:rocketgenius:gravityforms:*:*:*:*:*:wordpress:*:*',
+        ['vendor' => 'Gravity Forms', 'product' => 'Gravity Forms', 'packageName' => 'gravity-forms'],
+        ['gravityforms', 'gravity-forms', 'rocketgenius', 'gravityforms'],
+    ],
+    'no vendor' => [
+        'cpe:2.3:a:thimpress:learnpress:*:*:*:*:*:wordpress:*:*',
+        ['vendor' => 'Unknown', 'product' => 'LearnPress'],
+        [null, 'learnpress', 'thimpress', 'learnpress'],
+    ],
+]);
+
+test('ties no names from entries that do not rename the product', function (array $configurations) {
+    $names = (new NVDRangeParser(adpSources: ['adp-uuid']))->productNames($configurations);
+
+    expect($names)->toBe([]);
+})->with([
+    'same names' => [pluginConfigWithCna('cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*', [pluginCnaEntry(['vendor' => 'Incsub', 'product' => 'Forminator'])])],
+    'ADP entry' => [pluginConfigWithCna('cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*', [pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Forminator', 'source' => 'adp-uuid'])])],
+    'another product' => [pluginConfigWithCna('cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*', [pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Hustle'])])],
+    'no CPE ranges' => [[['cna' => [pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Forminator'])]]]],
 ]);

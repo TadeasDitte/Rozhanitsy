@@ -338,3 +338,31 @@ test('stores coarse CNA-only ranges of the configured backporting products as lo
     expect($record->versionRanges()->pluck('confidence', 'product')->all())
         ->toBe(['app' => 'low', 'plugin' => 'high']);
 });
+
+test('stores the CNA names of NVD products and replaces them on --rerun', function () {
+    seedL2Formats();
+    $source = Source::factory()->create(['slug' => 'nvd']);
+    $record = ParsedRecord::factory()->ofSource($source)->create(['raw_ranges' => [
+        ['nodes' => [['negate' => false, 'cpeMatch' => [
+            ['criteria' => 'cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*', 'vulnerable' => true, 'versionEndIncluding' => '1.57.2'],
+        ]]]],
+        ['cna' => [[
+            'vendor' => 'WPMU DEV',
+            'product' => 'Forminator',
+            'packageName' => 'forminator',
+            'versions' => [['version' => 'n/a', 'lessThanOrEqual' => '1.57.2', 'status' => 'affected']],
+        ]]],
+    ]]);
+
+    $this->artisan('parse:l2', ['source' => 'nvd'])->assertSuccessful();
+    $this->artisan('parse:l2', ['source' => 'nvd', '--rerun' => true])->assertSuccessful();
+
+    $this->assertDatabaseCount('cna_product_names', 1);
+    $this->assertDatabaseHas('cna_product_names', [
+        'parsed_record_id' => $record->id,
+        'cna_vendor' => 'wpmudev',
+        'cna_product' => 'forminator',
+        'vendor' => 'incsub',
+        'product' => 'forminator',
+    ]);
+});

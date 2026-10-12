@@ -97,4 +97,12 @@ final class ParsedRecord extends Model
     {
         return $this->hasMany(VersionRange::class);
     }
+
+    /**
+     * @return HasMany<CnaProductName, $this>
+     */
+    public function cnaProductNames(): HasMany
+    {
+        return $this->hasMany(CnaProductName::class);
+    }
 }

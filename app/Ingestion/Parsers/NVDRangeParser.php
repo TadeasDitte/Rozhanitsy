@@ -2,13 +2,14 @@
 
 namespace App\Ingestion\Parsers;
 
+use App\Ingestion\ProductNameData;
 use App\Ingestion\Support\CnaAffected;
 use App\Ingestion\Support\Cpe23;
 use App\Ingestion\VersionRangeData;
 use App\Services\VersionComparator;
 use Illuminate\Container\Attributes\Config;
 
-final class NVDRangeParser implements RangeParser
+final class NVDRangeParser implements LearnsProductNames, RangeParser
 {
     /**
      * @param  list<string>  $backportingProducts  vendor:product pairs, see config/matching.php
@@ -21,6 +22,39 @@ final class NVDRangeParser implements RangeParser
     ) {}
 
     public function parse(array $rawRanges): array
+    {
+        [$ranges, $cnaEntries] = $this->read($rawRanges);
+
+        return $this->combineWithCna($ranges, $cnaEntries);
+    }
+
+    public function productNames(array $rawRanges): array
+    {
+        [$ranges, $cnaEntries] = $this->read($rawRanges);
+        $cnas = $this->parseCnas($cnaEntries);
+        $names = [];
+
+        foreach ($this->replaceableCpeRanges($ranges) as $group) {
+            $template = $group[0];
+            $product = (string) $template->product;
+
+            foreach ($this->entriesAbout($cnas, $template->vendor, $product) as $cna) {
+                if ($cna->product === null || $this->isFromAdp($cna) || [$cna->vendor, $cna->product] === [$template->vendor, $product]) {
+                    continue;
+                }
+
+                $names[$cna->vendor.'|'.$cna->product.'|'.$template->vendor.'|'.$product] = new ProductNameData($cna->vendor, $cna->product, $template->vendor, $product);
+            }
+        }
+
+        return array_values($names);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rawRanges
+     * @return array{list<VersionRangeData>, array<int, mixed>} the CPE ranges and the raw CNA entries
+     */
+    private function read(array $rawRanges): array
     {
         $ranges = [];
         $cnaEntries = [];
@@ -53,7 +87,7 @@ final class NVDRangeParser implements RangeParser
             }
         }
 
-        return $this->combineWithCna($ranges, $cnaEntries);
+        return [$ranges, $cnaEntries];
     }
 
     /**
@@ -76,23 +110,13 @@ final class NVDRangeParser implements RangeParser
      */
     private function combineWithCna(array $ranges, array $cnaEntries): array
     {
-        $cnas = array_values(array_filter(array_map(
-            fn (mixed $entry): ?CnaAffected => is_array($entry) ? CnaAffected::parse($entry) : null,
-            $cnaEntries,
-        )));
+        $cnas = $this->parseCnas($cnaEntries);
 
         if ($cnas === []) {
             return $ranges;
         }
 
-        /** @var array<string, list<VersionRangeData>> $cpeRanges the replaceable CPE ranges of each vendor / product */
-        $cpeRanges = [];
-
-        foreach ($ranges as $range) {
-            if ($range->product !== null && $range->versionScope !== 'na') {
-                $cpeRanges[$range->vendor.'|'.$range->product][] = $range;
-            }
-        }
+        $cpeRanges = $this->replaceableCpeRanges($ranges);
 
         if ($ranges === []) {
             return $this->cnaOnlyRanges($cnas);
@@ -125,6 +149,35 @@ final class NVDRangeParser implements RangeParser
         }
 
         return $kept;
+    }
+
+    /**
+     * @param  array<int, mixed>  $cnaEntries
+     * @return list<CnaAffected>
+     */
+    private function parseCnas(array $cnaEntries): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $entry): ?CnaAffected => is_array($entry) ? CnaAffected::parse($entry) : null,
+            $cnaEntries,
+        )));
+    }
+
+    /**
+     * @param  list<VersionRangeData>  $ranges
+     * @return array<string, non-empty-list<VersionRangeData>> the CPE ranges a CNA range can replace, per vendor / product
+     */
+    private function replaceableCpeRanges(array $ranges): array
+    {
+        $cpeRanges = [];
+
+        foreach ($ranges as $range) {
+            if ($range->product !== null && $range->versionScope !== 'na') {
+                $cpeRanges[$range->vendor.'|'.$range->product][] = $range;
+            }
+        }
+
+        return $cpeRanges;
     }
 
     /**

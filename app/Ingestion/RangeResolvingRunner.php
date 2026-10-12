@@ -2,7 +2,9 @@
 
 namespace App\Ingestion;
 
+use App\Ingestion\Parsers\LearnsProductNames;
 use App\Ingestion\Parsers\RangeParser;
+use App\Models\CnaProductName;
 use App\Models\ParsedRecord;
 use App\Models\Source;
 use App\Models\VersionRange;
@@ -48,13 +50,27 @@ final class RangeResolvingRunner
             /** @var array<int, array<string, mixed>> $rawRanges */
             $rawRanges = (array) ($record->raw_ranges ?? []);
             $ranges = $this->parser->parse($rawRanges);
+            $productNames = $this->parser instanceof LearnsProductNames ? $this->parser->productNames($rawRanges) : null;
             unset($rawRanges);
 
-            DB::transaction(function () use ($record, $ranges) {
+            DB::transaction(function () use ($record, $ranges, $productNames) {
                 VersionRange::where('parsed_record_id', $record->id)->delete();
 
                 $recordId = $record->id;
                 $timestamp = now()->toDateTimeString();
+
+                if ($productNames !== null) {
+                    CnaProductName::where('parsed_record_id', $recordId)->delete();
+                    CnaProductName::insert(array_map(fn (ProductNameData $name): array => [
+                        'parsed_record_id' => $recordId,
+                        'cna_vendor' => $name->cnaVendor,
+                        'cna_product' => $name->cnaProduct,
+                        'vendor' => $name->vendor,
+                        'product' => $name->product,
+                        'created_at' => $timestamp,
+                        'updated_at' => $timestamp,
+                    ], $productNames));
+                }
 
                 foreach (array_chunk($ranges, self::INSERT_CHUNK_SIZE) as $batch) {
                     VersionRange::insert(array_map(fn (VersionRangeData $range): array => [
