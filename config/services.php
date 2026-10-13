@@ -37,4 +37,8 @@ return [
     'nvd' => [
         'api_key' => env('NVD_API_KEY'),
     ],
+
+    'monitoring' => [
+        'webhook_urls' => array_values(array_filter(array_map('trim', explode(',', (string) env('MONITORING_WEBHOOK_URLS', ''))))),
+    ],
 ];
