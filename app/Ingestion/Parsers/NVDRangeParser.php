@@ -14,11 +14,13 @@ final class NVDRangeParser implements LearnsProductNames, RangeParser
     /**
      * @param  list<string>  $backportingProducts  vendor:product pairs, see config/matching.php
      * @param  list<string>  $adpSources  organization ids of ADP containers, see config/matching.php
+     * @param  array<string, string>  $cnaPlatforms  the platform by organization id of CNAs that cover its extensions only, see config/matching.php
      */
     public function __construct(
         private readonly VersionComparator $comparator = new VersionComparator,
         #[Config('matching.backporting_products')] private readonly array $backportingProducts = [],
         #[Config('matching.adp_sources')] private readonly array $adpSources = [],
+        #[Config('matching.cna_platforms')] private readonly array $cnaPlatforms = [],
     ) {}
 
     public function parse(array $rawRanges): array
@@ -382,11 +384,28 @@ final class NVDRangeParser implements LearnsProductNames, RangeParser
                 $isCoarseBackport = $bounds['startIncl'] === null && $bounds['startExcl'] === null
                     && in_array($cna->vendor.':'.$cna->product, $this->backportingProducts, true);
 
-                $ranges[] = $this->cnaRange($bounds, 'a', $cna->vendor, $cna->product, null, $cna->isAffectedByDefault || $isCoarseBackport || $this->isFromAdp($cna) ? 'low' : 'high');
+                $ranges[] = $this->cnaRange($bounds, 'a', $cna->vendor, $cna->product, $this->cnaOnlyPlugsInto($cna), $cna->isAffectedByDefault || $isCoarseBackport || $this->isFromAdp($cna) ? 'low' : 'high');
             }
         }
 
         return $ranges;
+    }
+
+    /**
+     * Without a CPE configuration no `target_sw` says what the product plugs
+     * into. The entry's own CPE or package collection says so, else the CNA
+     * does when it covers the extensions of one platform only, unless the entry
+     * names a collection of something else or the product is the platform.
+     */
+    private function cnaOnlyPlugsInto(CnaAffected $cna): ?string
+    {
+        if ($cna->plugsInto !== null || $cna->collectionUrl !== null) {
+            return $cna->plugsInto;
+        }
+
+        $platform = $cna->source !== null ? $this->cnaPlatforms[$cna->source] ?? null : null;
+
+        return $platform !== $cna->product ? $platform : null;
     }
 
     /**

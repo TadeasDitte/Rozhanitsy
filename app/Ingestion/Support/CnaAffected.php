@@ -24,6 +24,8 @@ final readonly class CnaAffected
      * @param  bool  $isAffectedByDefault  whether the ranges come from an everything-affected default rather than listed versions
      * @param  ?string  $vendorName  normalized vendor name
      * @param  ?string  $source  the organization (CNA or ADP) whose container the entry comes from
+     * @param  ?string  $plugsInto  the platform the entry's own CPE (`target_sw`) or package collection says the product plugs into
+     * @param  ?string  $collectionUrl  the package collection the entry says the product comes from (`collectionURL`)
      */
     private function __construct(
         public array $names,
@@ -33,6 +35,8 @@ final readonly class CnaAffected
         public bool $isAffectedByDefault = false,
         public ?string $vendorName = null,
         public ?string $source = null,
+        public ?string $plugsInto = null,
+        public ?string $collectionUrl = null,
     ) {}
 
     /**
@@ -69,10 +73,13 @@ final readonly class CnaAffected
             return null;
         }
 
-        [$vendor, $product] = self::cpeName($entry);
+        $cpe = self::ownCpe($entry);
+        [$vendor, $product] = self::cpeName($entry, $cpe);
         $source = is_string($entry['source'] ?? null) ? $entry['source'] : null;
+        $collectionUrl = is_string($entry['collectionURL'] ?? null) && trim($entry['collectionURL']) !== '' ? trim($entry['collectionURL']) : null;
+        $plugsInto = $cpe !== null && ! self::isPlaceholder($cpe->targetSw) ? $cpe->targetSw : self::collectionPlatform($collectionUrl);
 
-        return new self(array_values(array_unique($names)), $ranges, $vendor, $product, $isAffectedByDefault, $vendorName, $source);
+        return new self(array_values(array_unique($names)), $ranges, $vendor, $product, $isAffectedByDefault, $vendorName, $source, $plugsInto, $collectionUrl);
     }
 
     /**
@@ -167,13 +174,11 @@ final readonly class CnaAffected
     }
 
     /**
-     * The vendor and product to file the ranges under: the entry's own CPE when
-     * it lists one, else the package name or a slug of the product name.
+     * The first CPE the entry lists that names a product.
      *
      * @param  array<string, mixed>  $entry
-     * @return array{?string, ?string}
      */
-    private static function cpeName(array $entry): array
+    private static function ownCpe(array $entry): ?Cpe23
     {
         foreach ((array) ($entry['cpes'] ?? []) as $criteria) {
             try {
@@ -183,8 +188,24 @@ final readonly class CnaAffected
             }
 
             if ($cpe !== null && ! self::isPlaceholder($cpe->product)) {
-                return [self::isPlaceholder($cpe->vendor) ? null : $cpe->vendor, $cpe->product];
+                return $cpe;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * The vendor and product to file the ranges under: the entry's own CPE when
+     * it lists one, else the package name or a slug of the product name.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return array{?string, ?string}
+     */
+    private static function cpeName(array $entry, ?Cpe23 $cpe): array
+    {
+        if ($cpe !== null) {
+            return [self::isPlaceholder($cpe->vendor) ? null : $cpe->vendor, $cpe->product];
         }
 
         $vendor = is_string($entry['vendor'] ?? null) && ! self::isPlaceholder($entry['vendor'])
@@ -198,6 +219,15 @@ final readonly class CnaAffected
         }
 
         return [$vendor, null];
+    }
+
+    /**
+     * The platform whose packages a collection holds: wordpress.org/plugins and
+     * wordpress.org/themes hold WordPress plugins and themes.
+     */
+    private static function collectionPlatform(?string $url): ?string
+    {
+        return $url !== null && preg_match('#^(https?://)?(www\.)?wordpress\.org/(plugins|themes)(/|$)#i', $url) === 1 ? 'wordpress' : null;
     }
 
     /**

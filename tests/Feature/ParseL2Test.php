@@ -366,3 +366,17 @@ test('stores the CNA names of NVD products and replaces them on --rerun', functi
         'product' => 'forminator',
     ]);
 });
+
+test('stores CNA-only ranges of the configured CNAs as plugging into their platform', function () {
+    seedL2Formats();
+    config(['matching.cna_platforms' => ['wp-cna-uuid' => 'wordpress']]);
+    $source = Source::factory()->create(['slug' => 'nvd']);
+    $record = ParsedRecord::factory()->ofSource($source)->create(['raw_ranges' => [['cna' => [[
+        'vendor' => 'xtemos', 'product' => 'WoodMart', 'source' => 'wp-cna-uuid', 'defaultStatus' => 'unaffected',
+        'versions' => [['version' => 'n/a', 'lessThanOrEqual' => '7.0.4', 'status' => 'affected']],
+    ]]]]]);
+
+    $this->artisan('parse:l2', ['source' => 'nvd'])->assertSuccessful();
+
+    expect($record->versionRanges()->pluck('plugs_into', 'product')->all())->toBe(['woodmart' => 'wordpress']);
+});

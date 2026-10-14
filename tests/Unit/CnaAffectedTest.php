@@ -146,6 +146,18 @@ test('keeps the container an entry comes from', function () {
         ->toBe('adp-uuid');
 });
 
+test('reads the platform from the entry\'s own CPE or package collection', function (array $entry, ?string $plugsInto) {
+    expect(CnaAffected::parse(cnaEntry([['version' => '0', 'lessThan' => '1.0', 'status' => 'affected']], $entry))->plugsInto)
+        ->toBe($plugsInto);
+})->with([
+    'CPE target_sw' => [['cpes' => ['cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*']], 'wordpress'],
+    'CPE without target_sw' => [['cpes' => ['cpe:2.3:a:incsub:forminator:*:*:*:*:*:*:*:*'], 'collectionURL' => 'https://wordpress.org/plugins'], 'wordpress'],
+    'plugin collection' => [['collectionURL' => 'https://wordpress.org/plugins'], 'wordpress'],
+    'theme collection' => [['collectionURL' => 'https://wordpress.org/themes/'], 'wordpress'],
+    'another collection' => [['collectionURL' => 'https://packagist.org'], null],
+    'neither' => [[], null],
+]);
+
 test('reads an entry affected by default as one open range', function (array $versions, ?string $fixedIn) {
     $bounds = cnaBounds(cnaEntry($versions, ['defaultStatus' => 'affected']));
 

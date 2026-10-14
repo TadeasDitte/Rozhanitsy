@@ -76,4 +76,24 @@ return [
 
     'adp_sources' => ['134c704f-9b21-4f2e-91b3-4a467353bcc0'],
 
+    /*
+    |--------------------------------------------------------------------------
+    | CNA Platforms
+    |--------------------------------------------------------------------------
+    |
+    | Organization ids of CNAs that cover the extensions of one platform, such
+    | as WordPress plugins and themes, and that platform. A record NVD has not
+    | analysed yet has no CPE target_sw to fill plugs_into from. When its CNA
+    | entry names neither a CPE platform nor a package collection
+    | (wordpress.org/plugins), its ranges plug into the CNA's platform, unless
+    | the product is that platform (WordPress core).
+    |
+    */
+
+    'cna_platforms' => [
+        'b15e7b5b-3da4-40ae-a43c-f7aa60e62599' => 'wordpress', // Wordfence
+        '21595511-bba5-4825-b968-b78d1f9984a3' => 'wordpress', // Patchstack
+        '1bfdd5d7-9bf6-4a53-96ea-42e2716d7a81' => 'wordpress', // WPScan
+    ],
+
 ];

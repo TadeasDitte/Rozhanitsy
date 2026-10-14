@@ -100,7 +100,7 @@ NVD also returns the CNA's own `affected` version data (the vendor's or advisory
 | no | no | CNA ranges when both end at the same version (or the NVD last affected version lies below the CNA fix), else NVD ranges plus the CNA ranges as low confidence |
 
 Further rules:
-- A CVE NVD has not analyzed yet (no CPE configuration) gets the CNA ranges alone. The vendor / product comes from the entry's `cpes`, else its `packageName`, else a slug of its names (`Cookie Information` / `WP GDPR Compliance` becomes `cookieinformation` / `wp-gdpr-compliance`).
+- A CVE NVD has not analyzed yet (no CPE configuration) gets the CNA ranges alone. The vendor / product comes from the entry's `cpes`, else its `packageName`, else a slug of its names (`Cookie Information` / `WP GDPR Compliance` becomes `cookieinformation` / `wp-gdpr-compliance`). Its `plugs_into` comes from the `target_sw` of the entry's `cpes`, else its `collectionURL` (`https://wordpress.org/plugins` or `/themes` means `wordpress`), else from a CNA that only covers the extensions of one platform (`cna_platforms` in `config/matching.php`: Wordfence, Patchstack and WPScan for WordPress). The CNA's platform is not used for the platform itself (WordPress core) or for an entry that names another collection.
 - CNA ranges that start past their end (a mistyped `4.70` for `4.7.0`) are dropped.
 - `version: X, lessThan: X` (WPScan), `version: *` (Wordfence) and `version: n/a` (Patchstack) mean "below X". With `lessThanOrEqual` they mean "X and below", and so does `version: X, lessThanOrEqual: X` (Wordfence).
 - Placeholder entries (`n/a`) and entries naming another product leave the CPE ranges alone.

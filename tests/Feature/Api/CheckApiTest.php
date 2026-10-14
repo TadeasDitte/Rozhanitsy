@@ -401,7 +401,7 @@ test('matches a Packagist package however its name is spelled', function (array 
     'no ecosystem' => [['product' => 'Studio-42/elFinder']],
 ]);
 
-test('matches the CNA ranges an analysed record ties to the vendor and product', function (string $cnaVendor, string $cnaProduct, string $vendor, string $product) {
+test('matches the CNA ranges an analysed record ties to the vendor and product', function (?string $cnaVendor, string $cnaProduct, string $vendor, string $product) {
     VersionRange::factory()->create([
         'vendor' => $cnaVendor, 'product' => $cnaProduct, 'version_incl_start' => null, 'version_incl_end' => '1.57.2', 'version_excl_end' => null, 'raw' => 'cna:{}',
     ]);
@@ -414,6 +414,7 @@ test('matches the CNA ranges an analysed record ties to the vendor and product',
 })->with([
     'another vendor' => ['wpmudev', 'forminator', 'incsub', 'forminator'],
     'another slug' => ['gravityforms', 'gravity-forms', 'rocketgenius', 'gravityforms'],
+    'no vendor' => [null, 'gravity-forms', 'rocketgenius', 'gravityforms'],
 ]);
 
 test('matches a vendorless CNA range by any vendor of the product', function () {
@@ -431,5 +432,15 @@ test('does not match a vendorless CPE range when a vendor is given', function ()
     ]);
 
     $this->getJson(route('api.v1.check', ['vendor' => 'thimpress', 'product' => 'learnpress', 'version' => '4.2.7.3']))
+        ->assertJsonPath('data.vulnerability_count', 0);
+});
+
+test('does not match an advisory database range by a learned vendorless CNA name', function () {
+    VersionRange::factory()->create([
+        'ecosystem' => 'Bitnami', 'vendor' => null, 'product' => 'laravel', 'version_incl_start' => null, 'version_excl_end' => '12.2.0', 'raw' => 'pkg:bitnami/laravel {}',
+    ]);
+    CnaProductName::factory()->create(['cna_vendor' => null, 'cna_product' => 'laravel', 'vendor' => 'laravel', 'product' => 'laravel']);
+
+    $this->getJson(route('api.v1.check', ['vendor' => 'laravel', 'product' => 'laravel', 'version' => '11.44.1']))
         ->assertJsonPath('data.vulnerability_count', 0);
 });

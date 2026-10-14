@@ -688,3 +688,17 @@ test('ties no names from entries that do not rename the product', function (arra
     'another product' => [pluginConfigWithCna('cpe:2.3:a:incsub:forminator:*:*:*:*:*:wordpress:*:*', [pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Hustle'])])],
     'no CPE ranges' => [[['cna' => [pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Forminator'])]]]],
 ]);
+
+test('sets the platform of a CNA-only range from its entry, else from a CNA that covers one platform', function (array $entry, ?string $plugsInto) {
+    $ranges = (new NVDRangeParser(cnaPlatforms: ['wp-cna-uuid' => 'wordpress']))->parse([['cna' => [
+        pluginCnaEntry(['vendor' => 'WPMU DEV', 'product' => 'Forminator', ...$entry]),
+    ]]]);
+
+    expect($ranges[0]->plugsInto)->toBe($plugsInto);
+})->with([
+    'CNA of one platform' => [['source' => 'wp-cna-uuid'], 'wordpress'],
+    'another CNA' => [['source' => 'other-cna-uuid'], null],
+    'collection named by another CNA' => [['source' => 'other-cna-uuid', 'collectionURL' => 'https://wordpress.org/plugins'], 'wordpress'],
+    'collection of something else' => [['source' => 'wp-cna-uuid', 'collectionURL' => 'https://packagist.org'], null],
+    'the platform itself' => [['source' => 'wp-cna-uuid', 'vendor' => 'WordPress', 'product' => 'WordPress'], null],
+]);
